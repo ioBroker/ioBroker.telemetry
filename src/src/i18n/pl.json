@@ -1,0 +1,11 @@
+{
+  "Resources": "Zasoby",
+  "Stations": "Stacje",
+  "History instance": "Instancja historii",
+  "Statistics instance": "Instancja statystyki",
+  "none": "Żaden",
+  "Start planning from": "Rozpocznij planowanie od",
+  "In Form YYYY-MM": "W formie RRRR-MM",
+  "Insert object ID": "Wstaw identyfikator obiektu",
+  "Place your ioBroker.consumption license here": "Umieść swoją licencję na ioBroker.consumption tutaj"
+}

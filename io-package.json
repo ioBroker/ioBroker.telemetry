@@ -1,0 +1,91 @@
+{
+    "common": {
+        "name": "telemetry",
+        "version": "0.0.1",
+        "news": {
+            "0.0.1": {
+                "en": "initial release",
+                "de": "Erstveröffentlichung",
+                "ru": "Начальная версия",
+                "pt": "lançamento inicial",
+                "nl": "Eerste uitgave",
+                "fr": "Première version",
+                "it": "Versione iniziale",
+                "es": "Versión inicial",
+                "pl": "Pierwsze wydanie",
+                "zh-cn": "首次出版"
+            }
+        },
+        "title": "Collecting of telemetry data",
+        "titleLang": {
+            "en": "Collecting of telemetry data",
+            "de": "Sammeln von Telemetriedaten",
+            "ru": "Сбор данных телеметрии",
+            "pt": "Coleta de dados de telemetria",
+            "nl": "Verzamelen van telemetriegegevens",
+            "fr": "Collecte de données de télémétrie",
+            "it": "Raccolta di dati di telemetria",
+            "es": "Recopilación de datos de telemetría",
+            "pl": "Zbieranie danych telemetrycznych",
+            "zh-cn": "遥测数据的收集"
+        },
+        "desc": {
+            "en": "This adapter is used to anonymously collect the data on the central server for scientific research",
+            "de": "Dieser Adapter wird verwendet, um die Daten auf dem zentralen Server für wissenschaftliche Forschung anonym zu sammeln",
+            "ru": "Этот адаптер используется для анонимного сбора данных на центральном сервере для научных исследований.",
+            "pt": "Este adaptador é usado para coletar anonimamente os dados no servidor central para pesquisas científicas",
+            "nl": "Deze adapter wordt gebruikt om anoniem de gegevens op de centrale server te verzamelen voor wetenschappelijk onderzoek",
+            "fr": "Cet adaptateur permet de collecter de manière anonyme les données sur le serveur central pour la recherche scientifique",
+            "it": "Questo adattatore viene utilizzato per raccogliere in modo anonimo i dati sul server centrale per la ricerca scientifica",
+            "es": "Este adaptador se utiliza para recopilar de forma anónima los datos en el servidor central para la investigación científica.",
+            "pl": "Ten adapter służy do anonimowego gromadzenia danych na centralnym serwerze do badań naukowych",
+            "zh-cn": "该适配器用于匿名收集中央服务器上的数据以进行科学研究"
+        },
+        "authors": [
+            "ioBroker <dogafox@gmail.com>"
+        ],
+        "keywords": [
+            "telemetry",
+            "data mining"
+        ],
+        "license": "MIT",
+        "platform": "Javascript/Node.js",
+        "main": "main.js",
+        "icon": "telemetry.png",
+        "enabled": true,
+        "extIcon": "https://raw.githubusercontent.com/ioBroker/ioBroker.telemetry/master/admin/telemetry.png",
+        "readme": "https://github.com/ioBroker/ioBroker.telemetry/blob/master/README.md",
+        "loglevel": "info",
+        "mode": "daemon",
+        "type": "communication",
+        "compact": true,
+        "materialize": true
+    },
+    "native": {
+        "url": "http://localhost:3003"
+    },
+    "objects": [],
+    "instanceObjects": [
+        {
+            "_id": "info",
+            "type": "channel",
+            "common": {
+                "name": "Information"
+            },
+            "native": {}
+        },
+        {
+            "_id": "info.connection",
+            "type": "state",
+            "common": {
+                "role": "indicator.connected",
+                "name": "Device or service connected",
+                "type": "boolean",
+                "read": true,
+                "write": false,
+                "def": false
+            },
+            "native": {}
+        }
+    ]
+}
