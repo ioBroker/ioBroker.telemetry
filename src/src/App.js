@@ -8,9 +8,7 @@ import Loader from '@iobroker/adapter-react/Components/Loader'
 
 import I18n from '@iobroker/adapter-react/i18n';
 import TabOptions from './Tabs/Options';
-import TabResources from './Tabs/Resources';
-import TabStations from './Tabs/Stations';
-import TabLicense from './Tabs/License';
+import TabStates from './Tabs/States';
 
 const styles = theme => ({
     root: {},
@@ -52,14 +50,8 @@ class App extends GenericApp {
         if (!tab || tab === 'undefined' || tab === 'options') {
             return 0;
         } else
-        if (tab === 'resources') {
+        if (tab === 'states') {
             return 1;
-        } else
-        if (tab === 'stations') {
-            return 2;
-        } else
-        if (tab === 'license') {
-            return 3;
         }
     }
 
@@ -74,10 +66,8 @@ class App extends GenericApp {
             <div className="App" style={{background: this.state.themeType === 'dark' ? '#000' : '#FFF'}}>
                 <AppBar position="static">
                     <Tabs value={this.getSelectedTab()} onChange={(e, index) => this.selectTab(e.target.parentNode.dataset.name, index)}>
-                        <Tab label={I18n.t('Options')}   data-name="options" />
-                        <Tab label={I18n.t('Resources')} data-name="resources" />
-                        <Tab label={I18n.t('Stations')}  data-name="stations" />
-                        <Tab label={I18n.t('License')}   data-name="license" />
+                        <Tab label={I18n.t('Options')} data-name="options" />
+                        <Tab label={I18n.t('States')}  data-name="states" />
                     </Tabs>
                 </AppBar>
 
@@ -94,7 +84,7 @@ class App extends GenericApp {
                         adapterName={this.adapterName}
                         onChange={(attr, value, cb) => this.updateNativeValue(attr, value, cb)}
                     />)}
-                    {this.state.selectedTab === 'resources' && <TabResources
+                    {this.state.selectedTab === 'states' && <TabStates
                         key="resources"
                         common={this.common}
                         socket={this.socket}
@@ -107,31 +97,6 @@ class App extends GenericApp {
                         adapterName={this.adapterName}
                         onChange={(attr, value, cb) => this.updateNativeValue(attr, value, cb)}
                     />}
-                    {this.state.selectedTab === 'stations' && <TabStations
-                        key="stations"
-                        common={this.common}
-                        socket={this.socket}
-                        attributeName="stations"
-                        themeType={this.state.themeType}
-                        theme={this.state.theme}
-                        native={this.state.native}
-                        onError={text => this.setState({errorText: text})}
-                        instance={this.instance}
-                        adapterName={this.adapterName}
-                        onChange={(attr, value, cb) => this.updateNativeValue(attr, value, cb)}
-                    />}
-                    {this.state.selectedTab === 'license' && <TabLicense
-                        key="license"
-                        common={this.common}
-                        socket={this.socket}
-                        themeType={this.state.themeType}
-                        theme={this.state.theme}
-                        native={this.state.native}
-                        onError={text => this.setState({errorText: text})}
-                        instance={this.instance}
-                        adapterName={this.adapterName}
-                        onChange={(attr, value, cb) => this.updateNativeValue(attr, value, cb)}
-                        />}
                 </div>
                 {this.renderError()}
                 {this.renderSaveCloseButtons()}
