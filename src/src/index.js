@@ -18,7 +18,7 @@ console.log('iobroker.' + window.adapterName + '@' + version + ' using theme "' 
 function build() {
     return ReactDOM.render(
         <MuiThemeProvider theme={theme(themeName)}>
-            <App
+            <App common={{}}
                 onThemeChange={_theme => {
                     themeName = _theme;
                     build();

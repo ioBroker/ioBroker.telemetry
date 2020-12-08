@@ -37,13 +37,13 @@ class Options extends Component {
 
     render() {
         return <form className={this.props.classes.tab}>
-            <Logo
+            {/* <Logo
                 instance={this.props.instance}
-                common={this.props.common}
+                common={{}}
                 native={this.props.native}
                 onError={text => this.setState({errorText: text})}
                 onLoad={this.props.onLoad}
-            />
+            /> */}
             <div className={clsx(this.props.classes.column, this.props.classes.columnSettings)}>
                 <TextField
                     value={this.props.native.url}
