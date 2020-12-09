@@ -9,6 +9,8 @@ import {MdClose as IconClose} from 'react-icons/md';
 import I18n from '@iobroker/adapter-react/i18n';
 import Message from '@iobroker/adapter-react/Dialogs/Message';
 
+import TreeTable from '../Components/TreeTable';
+
 const styles = theme => ({
 
 });
@@ -63,7 +65,7 @@ class Options extends Component {
     }
 
     render() {
-        return <div>Template</div>;
+        return <div><TreeTable data={[{id: 1}, {id: 2}]} columns={[{title: I18n.t('ID'), field: 'id2'}, {title: I18n.t('ID'), field: 'id'}]}/></div>;
     }
 }
 
