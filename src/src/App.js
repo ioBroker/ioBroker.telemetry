@@ -24,6 +24,8 @@ const styles = theme => ({
     }
 });
 
+const roles = ['windows', 'temperature', 'gas', 'light', 'motion'];
+
 class App extends GenericApp {
     constructor(props) {
         const extendedProps = {};
@@ -62,6 +64,10 @@ class App extends GenericApp {
             </MuiThemeProvider>;
         }
 
+        console.log(this.state);
+
+        this.socket.getObject('telemetry.0.testVariable').then(result => console.log(result));
+
         return <MuiThemeProvider theme={this.state.theme}>
             <div className="App" style={{background: this.state.themeType === 'dark' ? '#000' : '#FFF'}}>
                 <AppBar position="static">
@@ -83,6 +89,7 @@ class App extends GenericApp {
                         instance={this.instance}
                         adapterName={this.adapterName}
                         onChange={(attr, value, cb) => this.updateNativeValue(attr, value, cb)}
+                        roles={roles}
                     />)}
                     {this.state.selectedTab === 'states' && <TabStates
                         key="resources"

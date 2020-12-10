@@ -1,7 +1,9 @@
 var express = require('express')
-  , app = express.createServer();
+  , bodyParser = require('body-parser');
 
-app.use(express.bodyParser());
+var app = express();
+
+app.use(bodyParser.json());
 
 app.post('/', function(request, response){
   console.log(request.body);      // your JSON

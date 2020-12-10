@@ -27,34 +27,35 @@ const styles = theme => ({
     }
 });
 
-class Options extends Component {
-    constructor(props) {
-        super(props);
-
-        this.state = {
-        };
-    }
-
-    render() {
-        return <form className={this.props.classes.tab}>
-            {/* <Logo
-                instance={this.props.instance}
-                common={{}}
-                native={this.props.native}
-                onError={text => this.setState({errorText: text})}
-                onLoad={this.props.onLoad}
-            /> */}
-            <div className={clsx(this.props.classes.column, this.props.classes.columnSettings)}>
+const Options = (props) => {
+    return <form className={props.classes.tab}>
+        {/* <Logo
+            instance={props.instance}
+            common={{}}
+            native={props.native}
+            onError={text => setState({errorText: text})}
+            onLoad={props.onLoad}
+        /> */}
+        <div className={clsx(props.classes.column, props.classes.columnSettings)}>
+            <TextField
+                value={props.native.url}
+                onChange={e => props.onChange('url', e.target.value)}
+                label={I18n.t('URL Server')}
+                helperText={I18n.t('Server')}
+            />
+        </div>
+        <h2>{I18n.t('Debounces')}</h2>
+        {props.roles.map(role => 
+            <div key={role} className={clsx(props.classes.column, props.classes.columnSettings)}>
                 <TextField
-                    value={this.props.native.url}
+                    value={props.native[role + '_debounce']}
                     type="number"
-                    onChange={e => this.props.onChange('url', e.target.value)}
-                    label={I18n.t('URL Server')}
-                    helperText={I18n.t('Server')}
+                    onChange={e => props.onChange(role + '_debounce', e.target.value)}
+                    label={I18n.t(role) + ' ' + I18n.t('debounce')}
                 />
             </div>
-        </form>;
-    }
+        )}
+    </form>;
 }
 
 Options.propTypes = {

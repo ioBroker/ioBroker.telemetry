@@ -47,15 +47,15 @@ function startAdapter(options) {
 
         // If you need to react to object changes, uncomment the following method.
         // You also need to subscribe to the objects with `adapter.subscribeObjects`, similar to `adapter.subscribeStates`.
-        // objectChange: (id, obj) => {
-        //     if (obj) {
-        //         // The object was changed
-        //         adapter.log.info(`object ${id} changed: ${JSON.stringify(obj)}`);
-        //     } else {
-        //         // The object was deleted
-        //         adapter.log.info(`object ${id} deleted`);
-        //     }
-        // },
+        objectChange: (id, obj) => {
+            if (obj) {
+                // The object was changed
+                adapter.log.info(`object ${id} changed: ${JSON.stringify(obj)}`);
+            } else {
+                // The object was deleted
+                adapter.log.info(`object ${id} deleted`);
+            }
+        },
 
         // is called if a subscribed state changes
         stateChange: (id, state) => {
@@ -96,6 +96,23 @@ async function main() {
     // adapter.config:
     adapter.log.info('config option1: ' + adapter.config.option1);
     adapter.log.info('config option2: ' + adapter.config.option2);
+    // adapter.getForeignObjects('*', (error, result)=> {
+    //     Object.values(result).map(object => {
+    //         if (object.common && object.common.role) {
+    //             adapter.log.info(object._id + ': ' + object.common.role)
+    //         }
+    //     });
+
+    // });
+    adapter.subscribeForeignObjects('*', (error, result)=> {
+        // adapter.log.info(result);
+        // Object.values(result).map(object => {
+        //     if (object.common && object.common.role) {
+        //         adapter.log.info(object._id + ': ' + object.common.role)
+        //     }
+        // });
+
+    });
 
     /*
         For every state in the system there has to be also an object of type state

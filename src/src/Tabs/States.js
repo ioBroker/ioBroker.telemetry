@@ -15,6 +15,37 @@ const styles = theme => ({
 
 });
 
+const columns = [
+    {
+        title: I18n.t('ID'),
+        field: 'id'
+    },
+    {
+        title: I18n.t('Name'),
+        field: 'name'
+    },
+    {
+        title: I18n.t('Type'),
+        field: 'type'
+    },
+    {
+        title: I18n.t('Debounce'),
+        field: 'debounce'
+    },
+    {
+        title: I18n.t('Ignore'),
+        field: 'ignore'
+    },
+    {
+        title: I18n.t('Last event'),
+        field: 'last_event'
+    },
+    {
+        title: I18n.t('Events in hour'),
+        field: 'events_in_hour'
+    },
+];
+
 class Options extends Component {
     constructor(props) {
         super(props);
@@ -65,7 +96,7 @@ class Options extends Component {
     }
 
     render() {
-        return <div><TreeTable data={[{id: 1}, {id: 2}]} columns={[{title: I18n.t('ID'), field: 'id2'}, {title: I18n.t('ID'), field: 'id'}]}/></div>;
+        return <div><TreeTable data={[{id: 1}, {id: 2}]} columns={columns}/></div>;
     }
 }
 
