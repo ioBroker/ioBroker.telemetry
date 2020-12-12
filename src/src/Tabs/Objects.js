@@ -18,15 +18,18 @@ const styles = theme => ({
 const columns = [
     {
         title: I18n.t('ID'),
-        field: 'id'
+        field: '_id',
+        editable: 'never'
     },
     {
         title: I18n.t('Name'),
-        field: 'name'
+        field: 'name',
+        editable: 'never'
     },
     {
         title: I18n.t('Type'),
-        field: 'type'
+        field: 'type',
+        editable: 'never'
     },
     {
         title: I18n.t('Debounce'),
@@ -34,19 +37,25 @@ const columns = [
     },
     {
         title: I18n.t('Ignore'),
-        field: 'ignore'
+        field: 'ignore',
+        lookup: {
+            0: 'No ignore',
+            1: 'Ignore',
+        }
     },
     {
         title: I18n.t('Last event'),
-        field: 'last_event'
+        field: 'lastEvent',
+        editable: 'never'
     },
     {
         title: I18n.t('Events in hour'),
-        field: 'events_in_hour'
+        field: 'eventsInHour',
+        editable: 'never'
     },
 ];
 
-class Options extends Component {
+class Objects extends Component {
     constructor(props) {
         super(props);
         this.propertyName = 'resources';
@@ -95,12 +104,34 @@ class Options extends Component {
         }
     }
 
+    changeCell = data => {
+        let newObjects = JSON.parse(JSON.stringify(this.props.native.telemetryObjects));
+        //newObjects[data._id].ignore = 
+    }
+
     render() {
-        return <div><TreeTable data={[{id: 1}, {id: 2}]} columns={columns}/></div>;
+        let data = Object.values(this.props.native.telemetryObjects).map(object => {
+            const custom = object.common.custom ? object.common.custom['telemetry.0'] : {};
+            return {
+                _id: object._id,
+                type: object.common.role,
+                debounce: custom.debounce ? custom.debounce : this.props.native[object.common.role + '_debounce'],
+                ignore: custom.ignore ? custom.ignore : 0,
+                lastEvent: custom.lastEvent ? custom.lastEvent : null,
+                eventsInHour: custom.eventsInHour ? custom.eventsInHour : null,
+            }
+        });
+        return <div><TreeTable 
+            data={data} 
+            columns={columns}
+            disableTree={true}
+            disableDelete={true}
+            onUpdate={this.changeCell}
+        /></div>;
     }
 }
 
-Options.propTypes = {
+Objects.propTypes = {
     common: PropTypes.object.isRequired,
     native: PropTypes.object.isRequired,
     instance: PropTypes.number.isRequired,
@@ -112,4 +143,4 @@ Options.propTypes = {
     socket: PropTypes.object.isRequired,
 };
 
-export default withStyles(styles)(Options);
+export default withStyles(styles)(Objects);

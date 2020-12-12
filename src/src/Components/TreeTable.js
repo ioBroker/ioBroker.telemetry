@@ -268,7 +268,7 @@ class TreeTable extends React.Component {
                         this.state.deleteMode !== false && this.state.deleteMode !== i && this.props.classes.rowNoEdit,
                     )}
                 >
-                    <TableCell className={clsx(this.props.classes.cell, this.props.classes.cellExpand, level && this.props.classes.cellSecondary)}>
+                    {this.props.disableTree ? null : <TableCell className={clsx(this.props.classes.cell, this.props.classes.cellExpand, level && this.props.classes.cellSecondary)}>
                         {children.length ? <IconButton onClick={() => {
                             const opened = [...this.state.opened];
                             const pos = opened.indexOf(item.id);
@@ -283,7 +283,7 @@ class TreeTable extends React.Component {
                         }}>
                                 {opened ? <IconCollapse/> : <IconExpand/>}
                             </IconButton>  : null}
-                    </TableCell>
+                    </TableCell>}
                     <TableCell scope="row"
                        className={clsx(this.props.classes.cell, level && this.props.classes.cellSecondary)}
                        style={this.props.columns[0].cellStyle}>
@@ -319,7 +319,7 @@ class TreeTable extends React.Component {
                                 <IconClose/>
                             </IconButton>
                             :
-                            <IconButton
+                            this.props.disableDelete ? null : <IconButton
                                 disabled={this.state.deleteMode !== false}
                                 onClick={() => this.setState({deleteMode: i})}>
                                 <IconDelete/>
@@ -340,7 +340,9 @@ class TreeTable extends React.Component {
     renderHead() {
         return <TableHead>
             <TableRow>
-                <TableCell component="th" className={clsx(this.props.classes.cell, this.props.classes.cellHeader, this.props.classes.cellExpand)}/>
+                {this.props.disableTree ? null : 
+                    <TableCell component="th" className={clsx(this.props.classes.cell, this.props.classes.cellHeader, this.props.classes.cellExpand)}/>
+                }
                 <TableCell
                     component="th"
                     className={clsx(this.props.classes.cell, this.props.classes.cellHeader, this.props.classes['width_' + this.props.columns[0].field.replace(/\./g, '_')])}
@@ -407,6 +409,8 @@ TreeTable.propTypes = {
     onUpdate: PropTypes.func,
     onDelete: PropTypes.func,
     themeType: PropTypes.string,
+    disableDelete: PropTypes.bool,
+    disableTree: PropTypes.bool,
 };
 
 export default withStyles(styles)(TreeTable);

@@ -8,7 +8,7 @@ import Loader from '@iobroker/adapter-react/Components/Loader'
 
 import I18n from '@iobroker/adapter-react/i18n';
 import TabOptions from './Tabs/Options';
-import TabStates from './Tabs/States';
+import TabObjects from './Tabs/Objects';
 
 const styles = theme => ({
     root: {},
@@ -42,7 +42,7 @@ class App extends GenericApp {
             'zh-cn': require('./i18n/zh-cn'),
         };
         extendedProps.doNotLoadAllObjects = true;
-        extendedProps.adapterName = 'consumption';
+        extendedProps.adapterName = 'telemetry';
 
         super(props, extendedProps);
     }
@@ -52,7 +52,7 @@ class App extends GenericApp {
         if (!tab || tab === 'undefined' || tab === 'options') {
             return 0;
         } else
-        if (tab === 'states') {
+        if (tab === 'objects') {
             return 1;
         }
     }
@@ -66,14 +66,14 @@ class App extends GenericApp {
 
         console.log(this.state);
 
-        this.socket.getObject('telemetry.0.testVariable').then(result => console.log(result));
+        this.socket.getObject('system.adapter.telemetry.0').then(result => console.log(result));
 
         return <MuiThemeProvider theme={this.state.theme}>
             <div className="App" style={{background: this.state.themeType === 'dark' ? '#000' : '#FFF'}}>
                 <AppBar position="static">
                     <Tabs value={this.getSelectedTab()} onChange={(e, index) => this.selectTab(e.target.parentNode.dataset.name, index)}>
                         <Tab label={I18n.t('Options')} data-name="options" />
-                        <Tab label={I18n.t('States')}  data-name="states" />
+                        <Tab label={I18n.t('Objects')}  data-name="objects" />
                     </Tabs>
                 </AppBar>
 
@@ -91,7 +91,7 @@ class App extends GenericApp {
                         onChange={(attr, value, cb) => this.updateNativeValue(attr, value, cb)}
                         roles={roles}
                     />)}
-                    {this.state.selectedTab === 'states' && <TabStates
+                    {this.state.selectedTab === 'objects' && <TabObjects
                         key="resources"
                         common={this.common}
                         socket={this.socket}

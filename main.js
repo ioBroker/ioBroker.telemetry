@@ -7,6 +7,7 @@
 // The adapter-core module gives you access to the core ioBroker functions
 // you need to create an adapter
 const utils = require('@iobroker/adapter-core');
+const axios = require('axios');
 
 // Load your modules here, e.g.:
 // const fs = require("fs");
@@ -16,6 +17,69 @@ const utils = require('@iobroker/adapter-core');
  * @type {ioBroker.Adapter}
  */
 let adapter;
+
+const roles = ['windows', 'temperature', 'gas', 'light', 'motion'];
+
+
+async function addEvent(state) {
+    let events;
+    let settings = await adapter.getForeignObjectAsync('system.adapter.telemetry.0');
+    let telemetryObjects = settings.native.telemetryObjects;
+    try {
+        events = JSON.parse((await adapter.readFileAsync('telemetry.0', 'telemetry_events.json')).file);
+    }
+    catch (e) {
+        events = null;
+    }
+    if (!events) {
+        events = [];
+    }
+    if (telemetryObjects[state._id]) {
+
+    }
+    adapter.setObject('system.adapter.telemetry.0', settings);
+    events.push(state);
+    adapter.writeFile('telemetry.0', 'telemetry_events.json', JSON.stringify(events));
+}
+
+async function saveObjects(objects) {
+    let settings = await adapter.getForeignObjectAsync('system.adapter.telemetry.0');
+    // adapter.log.info(JSON.stringify(settings));
+    settings.native.telemetryObjects = {};
+    let telemetryObjects = settings.native.telemetryObjects;
+    Object.values(objects).map(object => {
+        if (object.common && object.common.role) {
+            if (roles.includes(object.common.role)) {
+                telemetryObjects[object._id] = object;
+            }
+        }
+    });
+    adapter.setObject('system.adapter.telemetry.0', settings);
+}
+
+async function sendEvents() {
+    let events;
+    try {
+        events = JSON.parse((await adapter.readFileAsync('telemetry.0', 'telemetry_events.json')).file);
+    }
+    catch (e) {
+        events = [];
+    }
+    let settings = await adapter.getForeignObjectAsync('system.adapter.telemetry.0');
+    let telemetryObjects = settings.native.telemetryObjects;
+    let uuid = (await adapter.getForeignObjectAsync('system.meta.uuid')).native.uuid;
+    if (events.length >= 100) {
+        events.forEach(event => {
+            object = telemetryObjects[event._id];
+            object.lastSend = Date.now();
+
+            const result = await axios.post(settings.native.url, event);
+        })
+        events = [];
+        adapter.writeFile('telemetry.0', 'telemetry_events.json', JSON.stringify(events));
+        adapter.setObject('system.adapter.telemetry.0', settings);
+    }
+}
 
 /**
  * Starts the adapter instance
@@ -51,6 +115,9 @@ function startAdapter(options) {
             if (obj) {
                 // The object was changed
                 adapter.log.info(`object ${id} changed: ${JSON.stringify(obj)}`);
+                if (roles.includes(obj.common.role)) {
+                    addEvent(obj);
+                }
             } else {
                 // The object was deleted
                 adapter.log.info(`object ${id} deleted`);
@@ -61,6 +128,7 @@ function startAdapter(options) {
         stateChange: (id, state) => {
             if (state) {
                 // The state was changed
+                adapter.log.info(JSON.stringify(state));
                 adapter.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
             } else {
                 // The state was deleted
@@ -96,23 +164,10 @@ async function main() {
     // adapter.config:
     adapter.log.info('config option1: ' + adapter.config.option1);
     adapter.log.info('config option2: ' + adapter.config.option2);
-    // adapter.getForeignObjects('*', (error, result)=> {
-    //     Object.values(result).map(object => {
-    //         if (object.common && object.common.role) {
-    //             adapter.log.info(object._id + ': ' + object.common.role)
-    //         }
-    //     });
-
-    // });
-    adapter.subscribeForeignObjects('*', (error, result)=> {
-        // adapter.log.info(result);
-        // Object.values(result).map(object => {
-        //     if (object.common && object.common.role) {
-        //         adapter.log.info(object._id + ': ' + object.common.role)
-        //     }
-        // });
-
+    adapter.getForeignObjects('*', (error, result)=> {
+        saveObjects(result);
     });
+    adapter.subscribeForeignObjects('*');
 
     /*
         For every state in the system there has to be also an object of type state
