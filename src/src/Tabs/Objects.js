@@ -115,7 +115,7 @@ class Objects extends Component {
                 debounce: custom.debounce ? custom.debounce : this.props.native[object.common.role + '_debounce'],
                 ignore: custom.ignore ? custom.ignore : 0,
                 lastEvent: custom.lastEvent ? moment(custom.lastEvent).format('YYYY-MM-DD HH:mm:ss') : null,
-                eventsInHour: custom.eventsInHour ? custom.eventsInHour : null,
+                eventsInHour: custom.eventsInHour ? custom.eventsInHour.length : null,
             }
         });
         console.log(data);

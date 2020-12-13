@@ -5,7 +5,8 @@ import Tabs from '@material-ui/core/Tabs';
 import Tab from '@material-ui/core/Tab';
 import GenericApp from '@iobroker/adapter-react/GenericApp';
 import Loader from '@iobroker/adapter-react/Components/Loader'
-
+import IconButton from '@material-ui/core/IconButton';
+import RefreshIcon from '@material-ui/icons/Refresh';
 import I18n from '@iobroker/adapter-react/i18n';
 import TabOptions from './Tabs/Options';
 import TabObjects from './Tabs/Objects';
@@ -93,9 +94,13 @@ class App extends GenericApp {
         return <MuiThemeProvider theme={this.state.theme}>
             <div className="App" style={{background: this.state.themeType === 'dark' ? '#000' : '#FFF'}}>
                 <AppBar position="static">
+
                     <Tabs value={this.getSelectedTab()} onChange={(e, index) => this.selectTab(e.target.parentNode.dataset.name, index)}>
                         <Tab label={I18n.t('Options')} data-name="options" />
                         <Tab label={I18n.t('Objects')}  data-name="objects" />
+                        <IconButton onClick={() => this.onPrepareLoad(this.state.native)}>
+                            <RefreshIcon/>
+                        </IconButton>
                     </Tabs>
                 </AppBar>
 
