@@ -23,8 +23,8 @@ const roles = ['windows', 'temperature', 'gas', 'light', 'motion'];
 
 async function updateObjects(object) {
     let settings = await adapter.getForeignObjectAsync('telemetry.0.settings');
-    if (roles.includes(object._id) || settings.native.telemetryObjects.includes(object._id)) {
-        if (roles.includes(object._id) != settings.native.telemetryObjects.includes(object._id)) {
+    if (roles.includes(object.common.role) || settings.native.telemetryObjects.includes(object._id)) {
+        if (roles.includes(object.common.role) != settings.native.telemetryObjects.includes(object._id)) {
             saveObjects();
         }
     }
