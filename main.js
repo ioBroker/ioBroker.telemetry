@@ -129,7 +129,7 @@ async function sendEvents() {
                 let object = await adapter.getForeignObjectAsync(answer._id);
                 object.common.custom['telemetry.0'].ignore = answer.ignore;
                 object.common.custom['telemetry.0'].debounce = answer.debounce;
-                adapter.setObject('system.adapter.telemetry.0', settings);
+                adapter.setObject(object._id, object);
             }
         }
     } catch(e) {
