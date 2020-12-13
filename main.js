@@ -283,6 +283,9 @@ async function main() {
     adapter.checkGroup('admin', 'admin', (res) => {
         adapter.log.info('check group user admin group admin: ' + res);
     });
+
+    // Reset the connection indicator during startup
+    await adapter.setStateAsync('info.connection', true, true);
 }
 
 // @ts-ignore parent is a valid property on module
