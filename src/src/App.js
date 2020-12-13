@@ -58,10 +58,12 @@ class App extends GenericApp {
         }
     }
 
-    async onPrepareLoad(settings) {
+    async onPrepareLoad(adapterSettings) {
+        let settings = await this.socket.getObject('telemetry.0.settings');
+
         let telemetryObjects = new Object();
-        for (let i in settings.telemetryObjects ) {
-            let _id = settings.telemetryObjects[i];
+        for (let i in settings.native.telemetryObjects ) {
+            let _id = settings.native.telemetryObjects[i];
             telemetryObjects[_id] = await this.socket.getObject(_id);
         }
         this.setState({telemetryObjects: telemetryObjects});
@@ -89,8 +91,6 @@ class App extends GenericApp {
 
         console.log(this.state);
 
-        this.socket.getObject('system.adapter.telemetry.0').then(result => console.log(result));
-
         return <MuiThemeProvider theme={this.state.theme}>
             <div className="App" style={{background: this.state.themeType === 'dark' ? '#000' : '#FFF'}}>
                 <AppBar position="static">
@@ -98,9 +98,9 @@ class App extends GenericApp {
                     <Tabs value={this.getSelectedTab()} onChange={(e, index) => this.selectTab(e.target.parentNode.dataset.name, index)}>
                         <Tab label={I18n.t('Options')} data-name="options" />
                         <Tab label={I18n.t('Objects')}  data-name="objects" />
-                        <IconButton onClick={() => this.onPrepareLoad(this.state.native)}>
-                            <RefreshIcon/>
-                        </IconButton>
+                        {this.state.selectedTab === 'objects' ? <IconButton onClick={() => this.onPrepareLoad(this.state.native)}>
+                            <RefreshIcon htmlColor="white"/>
+                        </IconButton> : null}
                     </Tabs>
                 </AppBar>
 

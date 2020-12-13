@@ -21,8 +21,18 @@ let adapter;
 const roles = ['windows', 'temperature', 'gas', 'light', 'motion'];
 
 
+async function updateObjects(object) {
+    let settings = await adapter.getForeignObjectAsync('telemetry.0.settings');
+    if (roles.includes(object._id) || settings.native.telemetryObjects.includes(object._id)) {
+        if (roles.includes(object._id) != settings.native.telemetryObjects.includes(object._id)) {
+            saveObjects();
+        }
+    }
+}
+
 async function addEvent(_id, state) {
-    let settings = await adapter.getForeignObjectAsync('system.adapter.telemetry.0');
+    let adapterSettings = await adapter.getForeignObjectAsync('system.adapter.telemetry.0');
+    let settings = await adapter.getForeignObjectAsync('telemetry.0.settings');
     let telemetryObjects = settings.native.telemetryObjects;
     if (!telemetryObjects.includes(_id)) {
         return;
@@ -32,7 +42,7 @@ async function addEvent(_id, state) {
 
     const debounce = object.common.custom['telemetry.0'].debounce ?
         object.common.custom['telemetry.0'].debounce : 
-        settings.native[object.common.role + '_debounce'];
+        adapterSettings.native[object.common.role + '_debounce'];
     
     if (parseInt(object.common.custom['telemetry.0'].ignore) 
         || object.common.custom['telemetry.0'].lastEvent && (Date.now() - object.common.custom['telemetry.0'].lastEvent < debounce)
@@ -40,18 +50,9 @@ async function addEvent(_id, state) {
         return;
     }
 
-    let events;
-    try {
-        events = JSON.parse((await adapter.readFileAsync('telemetry.0', 'telemetry_events.json')).file);
-    }
-    catch (e) {
-        events = null;
-    }
+    let events = settings.native.events;
     if (!events) {
         events = [];
-    }
-    if (!Array.isArray(telemetryObjects)) {
-        return;
     }
 
     object.common.custom['telemetry.0'].lastEvent = Date.now();
@@ -60,8 +61,8 @@ async function addEvent(_id, state) {
     }
     object.common.custom['telemetry.0'].eventsInHour.push(object.common.custom['telemetry.0'].lastEvent);
     object.common.custom['telemetry.0'].eventsInHour = object.common.custom['telemetry.0'].eventsInHour.filter(time => Date.now() - time < 60 * 60 * 1000);
-
-    adapter.setObject(_id, object);
+    adapter.log.info("Change object " + _id);
+    adapter.setForeignObject(_id, object);
     
     let uuid = (await adapter.getForeignObjectAsync('system.meta.uuid')).native.uuid;
     state.uuid = uuid;
@@ -69,16 +70,20 @@ async function addEvent(_id, state) {
     state._id = _id;
 
     events.push(state);
-    adapter.writeFile('telemetry.0', 'telemetry_events.json', JSON.stringify(events));
+    settings.native.events = events;
+    adapter.setForeignObject('telemetry.0.settings', settings);
     
     if (events.length >= 100 || settings.native.lastSend && settings.native.lastSend - Date.now() > 5 * 60 * 1000) {
         sendEvents();
     }
 }
 
-async function saveObjects(objects) {
-    let settings = await adapter.getForeignObjectAsync('system.adapter.telemetry.0');
+async function saveObjects() {
+    await adapter.unsubscribeForeignObjectsAsync('*');
+    let objects = await adapter.getForeignObjectsAsync('*');
+    let settings = await adapter.getForeignObjectAsync('telemetry.0.settings');
     settings.native.telemetryObjects = [];
+    adapter.unsubscribeForeignStates('*');
     let telemetryObjects = settings.native.telemetryObjects;
     for (let i in objects) {
         let object = objects[i];
@@ -93,35 +98,36 @@ async function saveObjects(objects) {
                     object.common.custom['telemetry.0'] = {}
                 }
                 adapter.setForeignObject(object._id, object);
+                adapter.subscribeForeignStates(object._id);
             }
         }
     }
     adapter.log.info(JSON.stringify(settings.native.telemetryObjects));
-    await adapter.setObjectAsync('system.adapter.telemetry.0', settings);
+    await adapter.setForeignObjectAsync('telemetry.0.settings', settings);
+    await adapter.subscribeForeignObjectsAsync('*');
 }
 
 async function sendEvents() {
-    let events;
-    try {
-        events = JSON.parse((await adapter.readFileAsync('telemetry.0', 'telemetry_events.json')).file);
-    }
-    catch (e) {
+    let adapterSettings = await adapter.getForeignObjectAsync('system.adapter.telemetry.0');
+    let settings = await adapter.getForeignObjectAsync('telemetry.0.settings');
+    let events = settings.native.events;
+    if (!events) {
         events = [];
     }
-    let settings = await adapter.getForeignObjectAsync('system.adapter.telemetry.0');
     try {
-        const result = await axios.post(settings.native.url, events);
+        const result = await axios.post(adapterSettings.native.url, events);
         for (let i in events) {
             let event = events[i];
             let object = await adapter.getForeignObjectAsync(event._id);
             object.common.custom['telemetry.0'].lastSend = Date.now();
 
-            adapter.setObject(object._id, object);
+            adapter.setForeignObject(object._id, object);
         }
         events = [];
         adapter.writeFile('telemetry.0', 'telemetry_events.json', JSON.stringify(events));
-        settings.lastSend = Date.now();
-        adapter.setObject('system.adapter.telemetry.0', settings);
+        settings.native.lastSend = Date.now();
+        settings.native.events = events;
+        adapter.setForeignObject('telemetry.0.settings', settings);
 
         if (result) {
             for (let i in result) {
@@ -129,7 +135,7 @@ async function sendEvents() {
                 let object = await adapter.getForeignObjectAsync(answer._id);
                 object.common.custom['telemetry.0'].ignore = answer.ignore;
                 object.common.custom['telemetry.0'].debounce = answer.debounce;
-                adapter.setObject(object._id, object);
+                adapter.setForeignObject(object._id, object);
             }
         }
     } catch(e) {
@@ -170,10 +176,11 @@ function startAdapter(options) {
         objectChange: (id, obj) => {
             if (obj) {
                 // The object was changed
-                adapter.log.info(`object ${id} changed: ${JSON.stringify(obj)}`);
+                // adapter.log.info(`object ${id} changed: ${JSON.stringify(obj)}`);
+                updateObjects(obj);
             } else {
                 // The object was deleted
-                adapter.log.info(`object ${id} deleted`);
+                // adapter.log.info(`object ${id} deleted`);
             }
         },
 
@@ -181,8 +188,8 @@ function startAdapter(options) {
         stateChange: (id, state) => {
             if (state) {
                 // The state was changed
-                adapter.log.info(JSON.stringify(state));
-                adapter.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
+                // adapter.log.info(JSON.stringify(state));
+                // adapter.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
                 addEvent(id, state);
             } else {
                 // The state was deleted
@@ -217,6 +224,7 @@ async function main() {
     // The adapters config (in the instance object everything under the attribute "native") is accessible via
     // adapter.config:
 
+    await saveObjects();
     /*
         For every state in the system there has to be also an object of type state
         Here a simple template for a boolean variable named "testVariable"
@@ -234,8 +242,20 @@ async function main() {
         native: {},
     });
 
+    await adapter.setObjectNotExistsAsync('settings', {
+        type: 'state',
+        common: {
+            name: 'settings',
+            type: 'boolean',
+            role: 'meta',
+            read: true,
+            write: true,
+        },
+        native: {},
+    });
+
     // In order to get state updates, you need to subscribe to them. The following line adds a subscription for our variable we have created above.
-    adapter.subscribeStates('testVariable');
+    // adapter.subscribeStates('testVariable');
     // You can also add a subscription for multiple states. The following line watches all states starting with "lights."
     // adapter.subscribeStates('lights.*');
     // Or, if you really must, you can also watch all states. Don't do this if you don't need to. Otherwise this will cause a lot of unnecessary load on the system:
@@ -254,10 +274,6 @@ async function main() {
 
     // same thing, but the state is deleted after 30s (getState will return null afterwards)
     await adapter.setStateAsync('testVariable', { val: true, ack: true, expire: 30 });
-
-    let allObjects = await adapter.getForeignObjectsAsync('*');
-    await saveObjects(allObjects);
-    adapter.subscribeForeignObjects('*');
 
     // examples for the checkPassword/checkGroup functions
     adapter.checkPassword('admin', 'iobroker', (res) => {
