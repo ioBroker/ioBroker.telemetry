@@ -1,4 +1,5 @@
 import React, {Component} from 'react';
+import moment from 'moment';
 import {withStyles} from '@material-ui/core/styles';
 import PropTypes from 'prop-types';
 import Snackbar from '@material-ui/core/Snackbar';
@@ -18,7 +19,7 @@ const styles = theme => ({
 const columns = [
     {
         title: I18n.t('ID'),
-        field: '_id',
+        field: 'id',
         editable: 'never'
     },
     {
@@ -104,29 +105,26 @@ class Objects extends Component {
         }
     }
 
-    changeCell = data => {
-        let newObjects = JSON.parse(JSON.stringify(this.props.native.telemetryObjects));
-        //newObjects[data._id].ignore = 
-    }
-
     render() {
-        let data = Object.values(this.props.native.telemetryObjects).map(object => {
+        let data = Object.values(this.props.telemetryObjects).map(object => {
             const custom = object.common.custom ? object.common.custom['telemetry.0'] : {};
             return {
-                _id: object._id,
+                id: object._id,
+                name: object.common.name,
                 type: object.common.role,
                 debounce: custom.debounce ? custom.debounce : this.props.native[object.common.role + '_debounce'],
                 ignore: custom.ignore ? custom.ignore : 0,
-                lastEvent: custom.lastEvent ? custom.lastEvent : null,
+                lastEvent: custom.lastEvent ? moment(custom.lastEvent).format('YYYY-MM-DD HH:mm:ss') : null,
                 eventsInHour: custom.eventsInHour ? custom.eventsInHour : null,
             }
         });
+        console.log(data);
         return <div><TreeTable 
             data={data} 
             columns={columns}
             disableTree={true}
             disableDelete={true}
-            onUpdate={this.changeCell}
+            onUpdate={this.props.updateTelemetryObject}
         /></div>;
     }
 }
@@ -140,7 +138,9 @@ Objects.propTypes = {
     adapterName: PropTypes.string.isRequired,
     onError: PropTypes.func,
     onChange: PropTypes.func,
+    updateTelemetryObject: PropTypes.func,
     socket: PropTypes.object.isRequired,
+    telemetryObjects: PropTypes.object.isRequired,
 };
 
 export default withStyles(styles)(Objects);

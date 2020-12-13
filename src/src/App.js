@@ -57,8 +57,30 @@ class App extends GenericApp {
         }
     }
 
+    async onPrepareLoad(settings) {
+        let telemetryObjects = new Object();
+        for (let i in settings.telemetryObjects ) {
+            let _id = settings.telemetryObjects[i];
+            telemetryObjects[_id] = await this.socket.getObject(_id);
+        }
+        this.setState({telemetryObjects: telemetryObjects});
+    }
+
+    onPrepareSave() {
+        Object.keys(this.state.telemetryObjects).forEach(_id => 
+            this.socket.setObject(_id, this.state.telemetryObjects[_id])
+        );
+    }
+
+    updateTelemetryObject = (data) => {
+        let newObjects = JSON.parse(JSON.stringify(this.state.telemetryObjects));
+        newObjects[data.id].common.custom['telemetry.0'].ignore = data.ignore;
+        newObjects[data.id].common.custom['telemetry.0'].debounce = data.debounce;
+        this.setState({telemetryObjects: newObjects, changed: true});
+    }
+
     render() {
-        if (!this.state.loaded) {
+        if (!this.state.loaded || !this.state.telemetryObjects) {
             return <MuiThemeProvider theme={this.state.theme}>
                 <Loader theme={this.state.themeType}/>
             </MuiThemeProvider>;
@@ -95,6 +117,7 @@ class App extends GenericApp {
                         key="resources"
                         common={this.common}
                         socket={this.socket}
+                        telemetryObjects={this.state.telemetryObjects}
                         themeType={this.state.themeType}
                         attributeName="resources"
                         theme={this.state.theme}
@@ -103,6 +126,7 @@ class App extends GenericApp {
                         instance={this.instance}
                         adapterName={this.adapterName}
                         onChange={(attr, value, cb) => this.updateNativeValue(attr, value, cb)}
+                        updateTelemetryObject={this.updateTelemetryObject}
                     />}
                 </div>
                 {this.renderError()}

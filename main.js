@@ -21,10 +21,24 @@ let adapter;
 const roles = ['windows', 'temperature', 'gas', 'light', 'motion'];
 
 
-async function addEvent(state) {
-    let events;
+async function addEvent(_id, state) {
     let settings = await adapter.getForeignObjectAsync('system.adapter.telemetry.0');
     let telemetryObjects = settings.native.telemetryObjects;
+    if (!telemetryObjects.includes(_id)) {
+        return;
+    }
+
+    let object = await adapter.getForeignObjectAsync(_id);
+
+    const debounce = object.common.custom['telemetry.0'].debounce ?
+        object.common.custom['telemetry.0'].debounce : 
+        settings.native[object.common.role + '_debounce'];
+    
+    if (object.common.custom['telemetry.0'].ignore || object.common.custom['telemetry.0'].lastEvent && Date.now() - object.common.custom['telemetry.0'].lastEvent < debounce) {
+        return;
+    }
+
+    let events;
     try {
         events = JSON.parse((await adapter.readFileAsync('telemetry.0', 'telemetry_events.json')).file);
     }
@@ -34,26 +48,41 @@ async function addEvent(state) {
     if (!events) {
         events = [];
     }
-    if (telemetryObjects[state._id]) {
-
+    if (!Array.isArray(telemetryObjects)) {
+        return;
     }
-    adapter.setObject('system.adapter.telemetry.0', settings);
+    object.common.custom['telemetry.0'].lastEvent = Date.now();
+    adapter.setObject(_id, object);
+    let uuid = (await adapter.getForeignObjectAsync('system.meta.uuid')).native.uuid;
+    state.uuid = uuid;
+    state._id = _id;
     events.push(state);
     adapter.writeFile('telemetry.0', 'telemetry_events.json', JSON.stringify(events));
+    if (events.length >= 100 || settings.native.lastSend && settings.native.lastSend - Date.now() > 5 * 60 * 1000) {
+        sendEvents();
+    }
 }
 
 async function saveObjects(objects) {
     let settings = await adapter.getForeignObjectAsync('system.adapter.telemetry.0');
     // adapter.log.info(JSON.stringify(settings));
-    settings.native.telemetryObjects = {};
+    settings.native.telemetryObjects = [];
     let telemetryObjects = settings.native.telemetryObjects;
     Object.values(objects).map(object => {
         if (object.common && object.common.role) {
             if (roles.includes(object.common.role)) {
-                telemetryObjects[object._id] = object;
+                telemetryObjects.push(object._id);
+                if (!object.common.custom) {
+                    object.common.custom = {}
+                }
+                if (!object.common.custom['telemetry.0']) {
+                    object.common.custom['telemetry.0'] = {}
+                }
+                adapter.setObject(object._id, object);
             }
         }
     });
+    adapter.log.info(JSON.stringify(settings));
     adapter.setObject('system.adapter.telemetry.0', settings);
 }
 
@@ -66,18 +95,21 @@ async function sendEvents() {
         events = [];
     }
     let settings = await adapter.getForeignObjectAsync('system.adapter.telemetry.0');
-    let telemetryObjects = settings.native.telemetryObjects;
-    let uuid = (await adapter.getForeignObjectAsync('system.meta.uuid')).native.uuid;
-    if (events.length >= 100) {
-        events.forEach(event => {
-            object = telemetryObjects[event._id];
-            object.lastSend = Date.now();
+    try {
+        const result = await axios.post(settings.native.url, events);
+        for (let i in events) {
+            let event = events[i];
+            let object = await adapter.getForeignObjectAsync(event._id);
+            object.common.custom['telemetry.0'].lastSend = Date.now();
 
-            const result = await axios.post(settings.native.url, event);
-        })
+            adapter.setObject(object._id, object);
+        }
         events = [];
         adapter.writeFile('telemetry.0', 'telemetry_events.json', JSON.stringify(events));
+        settings.lastSend = Date.now();
         adapter.setObject('system.adapter.telemetry.0', settings);
+    } catch(e) {
+        adapter.log.info(e);
     }
 }
 
@@ -115,9 +147,6 @@ function startAdapter(options) {
             if (obj) {
                 // The object was changed
                 adapter.log.info(`object ${id} changed: ${JSON.stringify(obj)}`);
-                if (roles.includes(obj.common.role)) {
-                    addEvent(obj);
-                }
             } else {
                 // The object was deleted
                 adapter.log.info(`object ${id} deleted`);
@@ -130,6 +159,7 @@ function startAdapter(options) {
                 // The state was changed
                 adapter.log.info(JSON.stringify(state));
                 adapter.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
+                addEvent(id, state);
             } else {
                 // The state was deleted
                 adapter.log.info(`state ${id} deleted`);
