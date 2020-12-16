@@ -1,16 +1,8 @@
 'use strict';
 
-/*
- * Created with @iobroker/create-adapter v1.26.3
- */
-
-// The adapter-core module gives you access to the core ioBroker functions
-// you need to create an adapter
-const utils = require('@iobroker/adapter-core');
-const axios = require('axios');
-
-// Load your modules here, e.g.:
-// const fs = require("fs");
+const utils       = require('@iobroker/adapter-core');
+const axios       = require('axios');
+const adapterName = require('./package.json').name.split('.').pop();
 
 /**
  * The adapter instance
@@ -20,32 +12,31 @@ let adapter;
 
 const roles = ['windows', 'temperature', 'gas', 'light', 'motion'];
 
-
 async function updateObjects(object) {
-    let settings = await adapter.getForeignObjectAsync('telemetry.0.settings');
+    const settings = await adapter.getObjectAsync('settings');
     if (roles.includes(object.common.role) || settings.native.telemetryObjects.includes(object._id)) {
-        if (roles.includes(object.common.role) != settings.native.telemetryObjects.includes(object._id)) {
-            saveObjects();
+        if (roles.includes(object.common.role) !== settings.native.telemetryObjects.includes(object._id)) {
+            await saveObjects();
         }
     }
 }
 
 async function addEvent(_id, state) {
-    let adapterSettings = await adapter.getForeignObjectAsync('system.adapter.telemetry.0');
-    let settings = await adapter.getForeignObjectAsync('telemetry.0.settings');
-    let telemetryObjects = settings.native.telemetryObjects;
+    const settings = await adapter.getObjectAsync('settings');
+    const telemetryObjects = settings.native.telemetryObjects;
+
     if (!telemetryObjects.includes(_id)) {
         return;
     }
 
-    let object = await adapter.getForeignObjectAsync(_id);
+    const object = await adapter.getForeignObjectAsync(_id);
 
-    const debounce = object.common.custom['telemetry.0'].debounce ?
-        object.common.custom['telemetry.0'].debounce : 
-        adapterSettings.native[object.common.role + '_debounce'];
-    
-    if (parseInt(object.common.custom['telemetry.0'].ignore) 
-        || object.common.custom['telemetry.0'].lastEvent && (Date.now() - object.common.custom['telemetry.0'].lastEvent < debounce)
+    const debounce = object.common.custom[adapter.namespace].debounce ?
+        object.common.custom[adapter.namespace].debounce :
+        adapter.config[object.common.role + '_debounce'];
+
+    if (parseInt(object.common.custom[adapter.namespace].ignore)
+        || object.common.custom[adapter.namespace].lastEvent && (Date.now() - object.common.custom[adapter.namespace].lastEvent < debounce)
     ) {
         return;
     }
@@ -55,87 +46,114 @@ async function addEvent(_id, state) {
         events = [];
     }
 
-    object.common.custom['telemetry.0'].lastEvent = Date.now();
-    if (!object.common.custom['telemetry.0'].eventsInHour) {
-        object.common.custom['telemetry.0'].eventsInHour = [];
+    object.common.custom[adapter.namespace].lastEvent = Date.now();
+    if (!object.common.custom[adapter.namespace].eventsInHour) {
+        object.common.custom[adapter.namespace].eventsInHour = [];
     }
-    object.common.custom['telemetry.0'].eventsInHour.push(object.common.custom['telemetry.0'].lastEvent);
-    object.common.custom['telemetry.0'].eventsInHour = object.common.custom['telemetry.0'].eventsInHour.filter(time => Date.now() - time < 60 * 60 * 1000);
-    adapter.log.info("Change object " + _id);
+    object.common.custom[adapter.namespace].eventsInHour.push(object.common.custom[adapter.namespace].lastEvent);
+    object.common.custom[adapter.namespace].eventsInHour = object.common.custom[adapter.namespace].eventsInHour.filter(time => Date.now() - time < 60 * 60 * 1000);
+    adapter.log.info(`Change object ${_id}`);
     adapter.setForeignObject(_id, object);
-    
-    let uuid = (await adapter.getForeignObjectAsync('system.meta.uuid')).native.uuid;
-    state.uuid = uuid;
-    
+
+    state.uuid = (await adapter.getForeignObjectAsync('system.meta.uuid')).native.uuid;
+
     state._id = _id;
 
     events.push(state);
     settings.native.events = events;
-    adapter.setForeignObject('telemetry.0.settings', settings);
-    
+    adapter.setObject('settings', settings);
+
+    // TODO: here is the problem - if event will not come in the next 5 minutes, the queue will not be saved, even if it has 99 events
     if (events.length >= 100 || settings.native.lastSend && settings.native.lastSend - Date.now() > 5 * 60 * 1000) {
-        sendEvents();
+        await sendEvents();
     }
 }
 
 async function saveObjects() {
     await adapter.unsubscribeForeignObjectsAsync('*');
-    let objects = await adapter.getForeignObjectsAsync('*');
-    let settings = await adapter.getForeignObjectAsync('telemetry.0.settings');
+    const objects = await adapter.getForeignObjectsAsync('*');
+    const settings = await adapter.getObjectAsync('settings');
+
     settings.native.telemetryObjects = [];
     adapter.unsubscribeForeignStates('*');
-    let telemetryObjects = settings.native.telemetryObjects;
-    for (let i in objects) {
-        let object = objects[i];
+
+    const telemetryObjects = settings.native.telemetryObjects;
+    for (const i in objects) {
+        const object = objects[i];
         if (object.common && object.common.role) {
             if (roles.includes(object.common.role)) {
-                adapter.log.info("Telemetry object " + object._id);
+                adapter.log.info(`Telemetry object ${object._id}`);
                 telemetryObjects.push(object._id);
+
                 if (!object.common.custom) {
-                    object.common.custom = {}
+                    object.common.custom = {};
                 }
-                if (!object.common.custom['telemetry.0']) {
-                    object.common.custom['telemetry.0'] = {}
+                if (!object.common.custom[adapter.namespace]) {
+                    // TODO: custom['telemetry.0'] must have mandatory parameter "enabled": true, else it will be deleted by controller.
+                    // but it is not required to write redundant info. We know, that it is enabled by default, so we must write it only if
+                    // it must be ignored: {enabled: true, ignored: true}
+                    object.common.custom[adapter.namespace] = {};
                 }
+
+                // TODO: Write information here only if really changed.
                 adapter.setForeignObject(object._id, object);
                 adapter.subscribeForeignStates(object._id);
             }
         }
     }
+
+
     adapter.log.info(JSON.stringify(settings.native.telemetryObjects));
-    await adapter.setForeignObjectAsync('telemetry.0.settings', settings);
+    // TODO: why you save here the redundant information? We have stored all required info in the objects itself
+    await adapter.setObjectAsync('settings', settings);
     await adapter.subscribeForeignObjectsAsync('*');
 }
 
 async function sendEvents() {
-    let adapterSettings = await adapter.getForeignObjectAsync('system.adapter.telemetry.0');
-    let settings = await adapter.getForeignObjectAsync('telemetry.0.settings');
+    // TODO: it is not good to read the settings object (that anyway does not required) from DB. Why not to store it in RAM?
+    const settings = await adapter.getObjectAsync('settings');
     let events = settings.native.events;
     if (!events) {
         events = [];
     }
     try {
-        const result = await axios.post(adapterSettings.native.url, events);
-        for (let i in events) {
-            let event = events[i];
-            let object = await adapter.getForeignObjectAsync(event._id);
-            object.common.custom['telemetry.0'].lastSend = Date.now();
+        const result = await axios.post(adapter.config.url, events);
+        for (const i in events) {
+            const event = events[i];
+            // TODO: do not use Objects for dynamic data. States are for that.
+            const object = await adapter.getForeignObjectAsync(event._id);
+            object.common.custom[adapter.namespace].lastSend = Date.now(); // TODO: why you need it?
 
             adapter.setForeignObject(object._id, object);
         }
         events = [];
-        adapter.writeFile('telemetry.0', 'telemetry_events.json', JSON.stringify(events));
+        adapter.writeFile(adapter.namespace, 'telemetry_events.json', JSON.stringify(events));
         settings.native.lastSend = Date.now();
         settings.native.events = events;
-        adapter.setForeignObject('telemetry.0.settings', settings);
+
+        adapter.setObject('settings', settings);
 
         if (result) {
-            for (let i in result) {
-                let answer = result[i];
-                let object = await adapter.getForeignObjectAsync(answer._id);
-                object.common.custom['telemetry.0'].ignore = answer.ignore;
-                object.common.custom['telemetry.0'].debounce = answer.debounce;
-                adapter.setForeignObject(object._id, object);
+            for (const i in result) {
+                const answer = result[i];
+                const object = await adapter.getForeignObjectAsync(answer._id); // TODO Store this information in RAM and not read every time from DB
+                let changed;
+
+                if (answer.ignore !== undefined && object.common.custom[adapter.namespace].ignore !== answer.ignore) {
+                    changed = true;
+                    object.common.custom = object.common.custom || {};
+                    object.common.custom[adapter.namespace] = object.common.custom[adapter.namespace] || {};
+                    object.common.custom[adapter.namespace].ignore = !!answer.ignore;
+                    object.common.custom[adapter.namespace].enabled = true;
+                }
+                if (answer.debounce !== undefined && object.common.custom[adapter.namespace].debounce !== answer.debounce) {
+                    changed = true;
+                    object.common.custom = object.common.custom || {};
+                    object.common.custom[adapter.namespace] = object.common.custom[adapter.namespace] || {};
+                    object.common.custom[adapter.namespace].enabled = true;
+                    object.common.custom[adapter.namespace].debounce = answer.debounce;
+                }
+                changed && await adapter.setForeignObjectAsync(object._id, object);
             }
         }
     } catch(e) {
@@ -150,14 +168,14 @@ async function sendEvents() {
 function startAdapter(options) {
     // Create the adapter and define its methods
     return adapter = utils.adapter(Object.assign({}, options, {
-        name: 'telemetry',
+        name: adapterName,
 
         // The ready callback is called when databases are connected and adapter received configuration.
         // start here!
         ready: main, // Main method defined below for readability
 
         // is called when adapter shuts down - callback has to be called under any circumstances!
-        unload: (callback) => {
+        unload: callback => {
             try {
                 // Here you must clear all timeouts or intervals that may still be active
                 // clearTimeout(timeout1);
@@ -186,33 +204,13 @@ function startAdapter(options) {
 
         // is called if a subscribed state changes
         stateChange: (id, state) => {
-            if (state) {
+            if (id && state && state.val !== null && state.val !== undefined) {
                 // The state was changed
                 // adapter.log.info(JSON.stringify(state));
                 // adapter.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
                 addEvent(id, state);
-            } else {
-                // The state was deleted
-                adapter.log.info(`state ${id} deleted`);
             }
         },
-
-        // If you need to accept messages in your adapter, uncomment the following block.
-        // /**
-        //  * Some message was sent to this instance over message box. Used by email, pushover, text2speech, ...
-        //  * Using this method requires "common.message" property to be set to true in io-package.json
-        //  */
-        // message: (obj) => {
-        //     if (typeof obj === 'object' && obj.message) {
-        //         if (obj.command === 'send') {
-        //             // e.g. send email or pushover or whatever
-        //             adapter.log.info('send command');
-
-        //             // Send response in callback if required
-        //             if (obj.callback) adapter.sendTo(obj.from, obj.command, 'Message received', obj.callback);
-        //         }
-        //     }
-        // },
     }));
 }
 
@@ -225,22 +223,6 @@ async function main() {
     // adapter.config:
 
     await saveObjects();
-    /*
-        For every state in the system there has to be also an object of type state
-        Here a simple template for a boolean variable named "testVariable"
-        Because every adapter instance uses its own unique namespace variable names can't collide with other adapters variables
-    */
-    await adapter.setObjectNotExistsAsync('testVariable', {
-        type: 'state',
-        common: {
-            name: 'testVariable',
-            type: 'boolean',
-            role: 'indicator',
-            read: true,
-            write: true,
-        },
-        native: {},
-    });
 
     await adapter.setObjectNotExistsAsync('settings', {
         type: 'state',
@@ -254,37 +236,9 @@ async function main() {
         native: {},
     });
 
-    // In order to get state updates, you need to subscribe to them. The following line adds a subscription for our variable we have created above.
-    // adapter.subscribeStates('testVariable');
-    // You can also add a subscription for multiple states. The following line watches all states starting with "lights."
-    // adapter.subscribeStates('lights.*');
-    // Or, if you really must, you can also watch all states. Don't do this if you don't need to. Otherwise this will cause a lot of unnecessary load on the system:
-    // adapter.subscribeStates('*');
 
-    /*
-        setState examples
-        you will notice that each setState will cause the stateChange event to fire (because of above subscribeStates cmd)
-    */
-    // the variable testVariable is set to true as command (ack=false)
-    await adapter.setStateAsync('testVariable', true);
-
-    // same thing, but the value is flagged "ack"
-    // ack should be always set to true if the value is received from or acknowledged from the target system
-    await adapter.setStateAsync('testVariable', { val: true, ack: true });
-
-    // same thing, but the state is deleted after 30s (getState will return null afterwards)
-    await adapter.setStateAsync('testVariable', { val: true, ack: true, expire: 30 });
-
-    // examples for the checkPassword/checkGroup functions
-    adapter.checkPassword('admin', 'iobroker', (res) => {
-        adapter.log.info('check user admin pw iobroker: ' + res);
-    });
-
-    adapter.checkGroup('admin', 'admin', (res) => {
-        adapter.log.info('check group user admin group admin: ' + res);
-    });
-
-    // Reset the connection indicator during startup
+    // TODO: Set this state to true with the first successful POST request
+    // And set to false if the POST fails (no connection)
     await adapter.setStateAsync('info.connection', true, true);
 }
 
