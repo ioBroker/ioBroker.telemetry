@@ -61,16 +61,18 @@ class App extends GenericApp {
     async onPrepareLoad(adapterSettings) {
         let settings = await this.socket.getObject('telemetry.0.settings');
 
-        let telemetryObjects = new Object();
-        for (let i in settings.native.telemetryObjects ) {
-            let _id = settings.native.telemetryObjects[i];
-            telemetryObjects[_id] = await this.socket.getObject(_id);
+        let telemetryObjects = {};
+        if (settings) {
+            for (let i in settings.native.telemetryObjects) {
+                let _id = settings.native.telemetryObjects[i];
+                telemetryObjects[_id] = await this.socket.getObject(_id);
+            }
         }
-        this.setState({telemetryObjects: telemetryObjects});
+        this.setState({telemetryObjects});
     }
 
     onPrepareSave() {
-        Object.keys(this.state.telemetryObjects).forEach(_id => 
+        Object.keys(this.state.telemetryObjects).forEach(_id =>
             this.socket.setObject(_id, this.state.telemetryObjects[_id])
         );
     }

@@ -10,12 +10,37 @@ const adapterName = require('./package.json').name.split('.').pop();
  */
 let adapter;
 
-const roles = ['windows', 'temperature', 'gas', 'light', 'motion'];
+const roles = [
+    'sensor.motion',
+    'sensor.rain',
+    'sensor.lock',
+    'button.*',
+    'value.window',
+    'value.temperature',
+    'level.temperature',
+    'value.humidity',
+    'value.blood.sugar',
+    'level.co2',
+    'level.co2',
+    'value.health.*'
+];
+
+function isRoleRequired(role) {
+    if (roles.includes(role)) {
+        return true;
+    } else {
+        return !!roles.filter(r => r.includes('*')).find(r => role.startsWith(r.substring(0, r.length - 1)));
+    }
+}
 
 async function updateObjects(object) {
     const settings = await adapter.getObjectAsync('settings');
-    if (roles.includes(object.common.role) || settings.native.telemetryObjects.includes(object._id)) {
-        if (roles.includes(object.common.role) !== settings.native.telemetryObjects.includes(object._id)) {
+    if (!object || !object.common) {
+        return;
+    }
+
+    if (isRoleRequired(object.common.role) || settings.native.telemetryObjects.includes(object._id)) {
+        if (!settings.native.telemetryObjects.includes(object._id)) {
             await saveObjects();
         }
     }
