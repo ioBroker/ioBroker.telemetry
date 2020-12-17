@@ -18,9 +18,9 @@ This adapter is used to anonymously collect the data on the central server for s
 - events and objects are in RAM
 - hash IDs
 - Update RAM objects on objectChanged (updated / deleted)
-- Show lastEvent and events in hours (and update this info every minute in GUI)
+- Show lastEvent and events in hours (and update this info on state changed - `data.update`)
 - add setTimeout for send events (don't forget to clean the timeout on unload)
-- flash with green on update statistics only for according objects
+- flash with green on update statistics only for according objects (by the update and on save)
 
 ## Changelog
 

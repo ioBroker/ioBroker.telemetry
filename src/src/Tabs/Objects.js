@@ -10,7 +10,7 @@ import {MdClose as IconClose} from 'react-icons/md';
 import I18n from '@iobroker/adapter-react/i18n';
 import Message from '@iobroker/adapter-react/Dialogs/Message';
 
-import TreeTable from '@iobroker/adapter-react/Components/TreeTable';
+import TreeTable from '../Components/TreeTable';
 import Utils from '@iobroker/adapter-react/Components/Utils';
 
 const styles = theme => ({
@@ -168,6 +168,7 @@ class Objects extends Component {
             }
         });
         return <TreeTable
+            noAdd={true}
             data={data}
             columns={columns}
             onUpdate={(newData, oldData) => {
