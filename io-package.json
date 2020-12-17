@@ -87,6 +87,18 @@
                 "def": false
             },
             "native": {}
+        },
+        {
+            "_id": "data.events",
+            "type": "state",
+            "common": {
+                "role": "json",
+                "name": "Queue of events",
+                "type": "string",
+                "read": true,
+                "write": false
+            },
+            "native": {}
         }
     ]
 }

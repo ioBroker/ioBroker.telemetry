@@ -48,6 +48,7 @@
     "test:integration": "mocha test/integration --exit",
     "test": "npm run test:js && npm run test:package",
     "lint": "eslint",
+    "build": "gulp",
     "release": "release-script"
   },
   "bugs": {

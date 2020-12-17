@@ -29,13 +29,13 @@ const styles = theme => ({
 
 const Options = (props) => {
     return <form className={props.classes.tab}>
-        {/* <Logo
-            instance={props.instance}
-            common={{}}
-            native={props.native}
-            onError={text => setState({errorText: text})}
-            onLoad={props.onLoad}
-        /> */}
+        <Logo
+            instance={ props.instance }
+            common={ props.common }
+            native={ props.native }
+            onError={ text => {}/*setState({errorText: text})*/ }
+            onLoad={ props.onLoad }
+        />
         <div className={clsx(props.classes.column, props.classes.columnSettings)}>
             <TextField
                 value={props.native.url}
@@ -44,8 +44,8 @@ const Options = (props) => {
                 helperText={I18n.t('Server')}
             />
         </div>
-        <h2>{I18n.t('Debounces')}</h2>
-        {props.roles.map(role => 
+        <h2>{I18n.t('De-bounces')}</h2>
+        {props.roles.map(role =>
             <div key={role} className={clsx(props.classes.column, props.classes.columnSettings)}>
                 <TextField
                     value={props.native[role + '_debounce']}

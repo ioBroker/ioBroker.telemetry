@@ -132,6 +132,7 @@ class App extends GenericApp {
                     {this.state.selectedTab === 'objects' && <TabObjects
                         key="objects"
                         common={this.common}
+                        native={this.state.native}
                         socket={this.socket}
                         themeType={this.state.themeType}
                         theme={this.state.theme}

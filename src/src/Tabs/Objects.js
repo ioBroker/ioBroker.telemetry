@@ -11,6 +11,7 @@ import I18n from '@iobroker/adapter-react/i18n';
 import Message from '@iobroker/adapter-react/Dialogs/Message';
 
 import TreeTable from '@iobroker/adapter-react/Components/TreeTable';
+import Utils from '@iobroker/adapter-react/Components/Utils';
 
 const styles = theme => ({
 });
@@ -19,17 +20,17 @@ const columns = [
     {
         title: I18n.t('ID'),
         field: 'id',
-        editable: 'never'
+        editable: false
     },
     {
         title: I18n.t('Name'),
         field: 'name',
-        editable: 'never'
+        editable: false
     },
     {
         title: I18n.t('Type'),
         field: 'type',
-        editable: 'never'
+        editable: false
     },
     {
         title: I18n.t('Debounce'),
@@ -46,12 +47,12 @@ const columns = [
     {
         title: I18n.t('Last event'),
         field: 'lastEvent',
-        editable: 'never'
+        editable: false
     },
     {
         title: I18n.t('Events in hour'),
         field: 'eventsInHour',
-        editable: 'never'
+        editable: false
     },
 ];
 
@@ -67,7 +68,7 @@ class Objects extends Component {
             telemetryObjects: [],
         };
 
-        this.props.seocket.getState('system.adapter.' + this.props.adapterName + '.' + this.props.instance + '.alive')
+        this.props.socket.getState(`system.adapter.${this.props.adapterName}.${this.props.instance}.alive`)
             .then(state => {
                 const newState = {alive: state && state.val};
                 if (newState.alive) {
@@ -83,6 +84,18 @@ class Objects extends Component {
                     this.setState(newState);
                 }
             });
+    }
+
+    componentDidMount() {
+        this.props.socket.subscribeState(`system.adapter.${this.props.adapterName}.${this.props.instance}.alive`, this.onAliveChanged);
+    }
+
+    componentWillUnmount() {
+        this.props.socket.unsubscribeState(`system.adapter.${this.props.adapterName}.${this.props.instance}.alive`, this.onAliveChanged);
+    }
+
+    onAliveChanged = (id, state) => {
+        this.setState({alive: state ? !!state.val : false});
     }
 
     renderToast() {
@@ -126,24 +139,34 @@ class Objects extends Component {
         if (!this.state.alive) {
             return <p>{I18n.t('Please start the instance first!')}</p>;
         }
+        const lang = I18n.getLanguage();
 
-        let data = Object.values(this.state.telemetryObjects).map(object => {
-            const custom = object.common.custom ? object.common.custom[this.props.adapterName + '.' + this.props.instance] : {};
+        const data = Object.values(this.state.telemetryObjects).map(object => {
+            const custom = object.common.custom ? object.common.custom[this.props.adapterName + '.' + this.props.instance] || {} : {};
             return {
                 id: object._id,
-                name: object.common.name,
+                name: Utils.getObjectNameFromObj(object, lang),
                 type: object.common.role,
-                debounce: custom.debounce ? custom.debounce : this.props.native[object.common.role + '_debounce'],
+                debounce: custom.debounce ? custom.debounce : this.props.native[object.common.role + '_debounce'] || 0,
                 ignore: custom.ignore ? custom.ignore : 0,
                 lastEvent: custom.lastEvent ? moment(custom.lastEvent).format('YYYY-MM-DD HH:mm:ss') : null,
                 eventsInHour: custom.eventsInHour ? custom.eventsInHour.length : null,
             }
         });
-        console.log(data);
         return <TreeTable
             data={data}
             columns={columns}
-            onUpdate={this.props.updateTelemetryObject}
+            onUpdate={(newData, oldData) => {
+                console.log('Update: ' + JSON.stringify(newData));
+                this.props.socket.getObject(newData.id)
+                    .then(obj => {
+                        const namespace = this.props.adapterName + '.' + this.props.instance;
+                        obj.common.custom = obj.common.custom || {};
+                        obj.common.custom[namespace] = obj.common.custom[namespace] || {};
+                        // todo
+                        return this.props.socket.setObject(obj.id, obj);
+                    });
+            }}
         />;
     }
 }
@@ -156,8 +179,6 @@ Objects.propTypes = {
     themeType: PropTypes.string,
     adapterName: PropTypes.string.isRequired,
     onError: PropTypes.func,
-    onChange: PropTypes.func,
-    updateTelemetryObject: PropTypes.func,
     socket: PropTypes.object.isRequired
 };
 
