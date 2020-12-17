@@ -18,15 +18,19 @@ const styles = theme => ({
 
 const columns = [
     {
-        title: I18n.t('ID'),
-        field: 'id',
-        editable: false
+        title: I18n.t('Name'),
+        field: 'name',
+        subField: 'id',
+        editable: false,
+        subStyle: {
+            opacity: 0.5
+        }
     },
-    {
+    /*{
         title: I18n.t('Name'),
         field: 'name',
         editable: false
-    },
+    },*/
     {
         title: I18n.t('Type'),
         field: 'type',

@@ -158,6 +158,10 @@ const styles = theme => ({
     colorDialog: {
         overflow: 'hidden',
         padding: 15,
+    },
+    subText: {
+        fontSize: 10,
+        fontStyle: 'italic',
     }
 });
 
@@ -448,6 +452,15 @@ class TreeTable extends React.Component {
         }
     }
 
+    renderCellWithSubField(item, col) {
+        const main = getAttr(item, col.field, col.lookup);
+        const sub = getAttr(item, col.subField, col.subLookup)
+        return <div>
+            <div className={this.props.classes.mainText}>{main}</div>
+            <div className={this.props.classes.subText} style={col.subStyle || {}}>{sub}</div>
+        </div>;
+    }
+
     renderLine(item, level) {
         level = level || 0;
         const i = this.props.data.indexOf(item);
@@ -496,7 +509,11 @@ class TreeTable extends React.Component {
                     <TableCell scope="row"
                                className={Utils.clsx(this.props.classes.cell, level && this.props.classes.cellSecondary)}
                                style={this.props.columns[0].cellStyle}>
-                        {getAttr(item, this.props.columns[0].field, this.props.columns[0].lookup)}
+                        {this.props.columns[0].subField ?
+                            this.renderCellWithSubField(item, this.props.columns[0])
+                            :
+                            getAttr(item, this.props.columns[0].field, this.props.columns[0].lookup)
+                        }
                     </TableCell>
 
                     {this.props.columns.map((col, ii) =>
@@ -524,17 +541,17 @@ class TreeTable extends React.Component {
                                 <IconEdit/>
                             </IconButton>}
                     </TableCell> : null}
-                    {this.props.onDelete ? <TableCell className={Utils.clsx(this.props.classes.cell, this.props.classes.cellButton)}>
+                    {this.props.onUpdate || this.props.onDelete ? <TableCell className={Utils.clsx(this.props.classes.cell, this.props.classes.cellButton)}>
                         {this.state.editMode === i || this.state.deleteMode === i ?
                             <IconButton onClick={() => this.setState({editMode: false, deleteMode: false})}>
                                 <IconClose/>
                             </IconButton>
                             :
-                            <IconButton
+                            (this.props.onDelete ? <IconButton
                                 disabled={this.state.deleteMode !== false}
                                 onClick={() => this.setState({deleteMode: i})}>
                                 <IconDelete/>
-                            </IconButton>
+                            </IconButton> : null)
                         }
                     </TableCell> : null}
                 </TableRow>,
@@ -601,7 +618,7 @@ class TreeTable extends React.Component {
                         <IconAdd/>
                     </Fab>: null }
                 </TableCell> : null}
-                {this.props.onDelete ? <TableCell component="th" className={Utils.clsx(this.props.classes.cell, this.props.classes.cellHeader, this.props.classes.cellButton)}/> : null}
+                {this.props.onDelete || this.props.onUpdate ? <TableCell component="th" className={Utils.clsx(this.props.classes.cell, this.props.classes.cellHeader, this.props.classes.cellButton)}/> : null}
             </TableRow>
         </TableHead>;
     }
