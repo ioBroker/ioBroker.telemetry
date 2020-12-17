@@ -44,6 +44,8 @@ async function updateObjects(id, object) {
 
     if (isRoleRequired(object.common.role) || telemetryObjects.includes(object._id)) {
         if (!telemetryObjects.includes(object._id)) {
+            adapter.setState('data.update', true, true);
+
             await fetchObjects();
         }
     }
@@ -128,13 +130,6 @@ async function sendEvents() {
     // TODO: it is not good to read the settings object (that anyway does not required) from DB. Why not to store it in RAM?
     const settings = await adapter.getObjectAsync('settings');
     try {
-        // events
-        // sha256
-        event.forEach(event => {
-
-        });
-
-
         const result = await axios.post(adapter.config.url, events);
         updateConnection(true);
         for (const i in events) {
@@ -178,6 +173,7 @@ async function sendEvents() {
                 changed && await adapter.setForeignObjectAsync(object._id, object);
             }
         }
+        adapter.setState('data.update', true, true);
     } catch(e) {
         updateConnection(false);
         adapter.log.info(e);

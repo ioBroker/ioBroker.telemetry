@@ -72,30 +72,44 @@ class Objects extends Component {
             .then(state => {
                 const newState = {alive: state && state.val};
                 if (newState.alive) {
-                    this.props.socket.sendTo(this.props.adapterName + '.' + this.props.instance, 'browse', null)
-                        .then(result => {
-                            if (result.result) {
-                                this.setState({telemetryObjects: result.result});
-                            } else {
-                                this.setState({toast: I18n.t('Cannot get list:') + (result.error || 'see ioBroker log')});
-                            }
-                        });
+                    this.browse();
                 } else {
                     this.setState(newState);
                 }
             });
     }
 
+    browse() {
+        return this.props.socket.sendTo(this.props.adapterName + '.' + this.props.instance, 'browse', null)
+            .then(result => {
+                if (result.result) {
+                    this.setState({telemetryObjects: result.result});
+                } else {
+                    this.setState({toast: I18n.t('Cannot get list:') + (result.error || 'see ioBroker log')});
+                }
+            });
+    }
+
     componentDidMount() {
         this.props.socket.subscribeState(`system.adapter.${this.props.adapterName}.${this.props.instance}.alive`, this.onAliveChanged);
+        this.props.socket.subscribeState(`${this.props.adapterName}.${this.props.instance}.data.update`, this.onUpdatesDetected);
     }
 
     componentWillUnmount() {
         this.props.socket.unsubscribeState(`system.adapter.${this.props.adapterName}.${this.props.instance}.alive`, this.onAliveChanged);
+        this.props.socket.unsubscribeState(`${this.props.adapterName}.${this.props.instance}.data.update`, this.onUpdatesDetected);
     }
 
     onAliveChanged = (id, state) => {
         this.setState({alive: state ? !!state.val : false});
+    }
+
+    onUpdatesDetected = () => {
+        this.timer && clearTimeout(this.timer)
+        this.timer = setTimeout(() => {
+            this.timer = null;
+            this.browse();
+        }, 500);
     }
 
     renderToast() {

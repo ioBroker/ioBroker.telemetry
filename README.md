@@ -14,6 +14,13 @@
 
 This adapter is used to anonymously collect the data on the central server for scientific research
 
+## Todo
+- events and objects are in RAM
+- hash IDs
+- Update RAM objects on objectChanged (updated / deleted)
+- Show lastEvent and events in hours (and update this info every minute in GUI)
+- add setTimeout for send events (don't forget to clean the timeout on unload)
+
 
 ## Changelog
 

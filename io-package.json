@@ -99,6 +99,18 @@
                 "write": false
             },
             "native": {}
+        },
+        {
+            "_id": "data.update",
+            "type": "state",
+            "common": {
+                "role": "state",
+                "name": "Some updates detected",
+                "type": "boolean",
+                "read": true,
+                "write": false
+            },
+            "native": {}
         }
     ]
 }
