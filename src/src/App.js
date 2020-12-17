@@ -25,7 +25,20 @@ const styles = theme => ({
     }
 });
 
-const roles = ['windows', 'temperature', 'gas', 'light', 'motion'];
+const roles = [
+    'sensor.motion',
+    'sensor.rain',
+    'sensor.lock',
+    'button.*',
+    'value.window',
+    'value.temperature',
+    'level.temperature',
+    'value.humidity',
+    'value.blood.sugar',
+    'level.co2',
+    'level.co2',
+    'value.health.*'
+];
 
 class App extends GenericApp {
     constructor(props) {
@@ -58,7 +71,7 @@ class App extends GenericApp {
         }
     }
 
-    async onPrepareLoad(adapterSettings) {
+    /*async onPrepareLoad(adapterSettings) {
         let settings = await this.socket.getObject('telemetry.0.settings');
 
         let telemetryObjects = {};
@@ -75,23 +88,20 @@ class App extends GenericApp {
         Object.keys(this.state.telemetryObjects).forEach(_id =>
             this.socket.setObject(_id, this.state.telemetryObjects[_id])
         );
-    }
 
     updateTelemetryObject = (data) => {
         let newObjects = JSON.parse(JSON.stringify(this.state.telemetryObjects));
         newObjects[data.id].common.custom['telemetry.0'].ignore = data.ignore;
         newObjects[data.id].common.custom['telemetry.0'].debounce = data.debounce;
         this.setState({telemetryObjects: newObjects, changed: true});
-    }
+    }*/
 
     render() {
-        if (!this.state.loaded || !this.state.telemetryObjects) {
+        if (!this.state.loaded) {
             return <MuiThemeProvider theme={this.state.theme}>
                 <Loader theme={this.state.themeType}/>
             </MuiThemeProvider>;
         }
-
-        console.log(this.state);
 
         return <MuiThemeProvider theme={this.state.theme}>
             <div className="App" style={{background: this.state.themeType === 'dark' ? '#000' : '#FFF'}}>
@@ -100,9 +110,9 @@ class App extends GenericApp {
                     <Tabs value={this.getSelectedTab()} onChange={(e, index) => this.selectTab(e.target.parentNode.dataset.name, index)}>
                         <Tab label={I18n.t('Options')} data-name="options" />
                         <Tab label={I18n.t('Objects')}  data-name="objects" />
-                        {this.state.selectedTab === 'objects' ? <IconButton onClick={() => this.onPrepareLoad(this.state.native)}>
+                        {/*this.state.selectedTab === 'objects' ? <IconButton onClick={() => this.onPrepareLoad(this.state.native)}>
                             <RefreshIcon htmlColor="white"/>
-                        </IconButton> : null}
+                        </IconButton> : null*/}
                     </Tabs>
                 </AppBar>
 
@@ -114,26 +124,20 @@ class App extends GenericApp {
                         native={this.state.native}
                         theme={this.state.themeType}
                         onError={text => this.setState({errorText: text})}
-                        onLoad={native => this.onLoadConfig(native)}
                         instance={this.instance}
                         adapterName={this.adapterName}
                         onChange={(attr, value, cb) => this.updateNativeValue(attr, value, cb)}
                         roles={roles}
                     />)}
                     {this.state.selectedTab === 'objects' && <TabObjects
-                        key="resources"
+                        key="objects"
                         common={this.common}
                         socket={this.socket}
-                        telemetryObjects={this.state.telemetryObjects}
                         themeType={this.state.themeType}
-                        attributeName="resources"
                         theme={this.state.theme}
-                        native={this.state.native}
                         onError={text => this.setState({errorText: text})}
                         instance={this.instance}
                         adapterName={this.adapterName}
-                        onChange={(attr, value, cb) => this.updateNativeValue(attr, value, cb)}
-                        updateTelemetryObject={this.updateTelemetryObject}
                     />}
                 </div>
                 {this.renderError()}

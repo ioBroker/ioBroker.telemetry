@@ -10,10 +10,9 @@ import {MdClose as IconClose} from 'react-icons/md';
 import I18n from '@iobroker/adapter-react/i18n';
 import Message from '@iobroker/adapter-react/Dialogs/Message';
 
-import TreeTable from '../Components/TreeTable';
+import TreeTable from '@iobroker/adapter-react/Components/TreeTable';
 
 const styles = theme => ({
-
 });
 
 const columns = [
@@ -40,8 +39,8 @@ const columns = [
         title: I18n.t('Ignore'),
         field: 'ignore',
         lookup: {
-            0: 'No ignore',
-            1: 'Ignore',
+            0: I18n.t('No ignore'),
+            1: I18n.t('Ignore'),
         }
     },
     {
@@ -64,8 +63,26 @@ class Objects extends Component {
         this.state = {
             showHint: false,
             toast: '',
-            error: false,
+            alive: false,
+            telemetryObjects: [],
         };
+
+        this.props.seocket.getState('system.adapter.' + this.props.adapterName + '.' + this.props.instance + '.alive')
+            .then(state => {
+                const newState = {alive: state && state.val};
+                if (newState.alive) {
+                    this.props.socket.sendTo(this.props.adapterName + '.' + this.props.instance, 'browse', null)
+                        .then(result => {
+                            if (result.result) {
+                                this.setState({telemetryObjects: result.result});
+                            } else {
+                                this.setState({toast: I18n.t('Cannot get list:') + (result.error || 'see ioBroker log')});
+                            }
+                        });
+                } else {
+                    this.setState(newState);
+                }
+            });
     }
 
     renderToast() {
@@ -106,8 +123,12 @@ class Objects extends Component {
     }
 
     render() {
-        let data = Object.values(this.props.telemetryObjects).map(object => {
-            const custom = object.common.custom ? object.common.custom['telemetry.0'] : {};
+        if (!this.state.alive) {
+            return <p>{I18n.t('Please start the instance first!')}</p>;
+        }
+
+        let data = Object.values(this.state.telemetryObjects).map(object => {
+            const custom = object.common.custom ? object.common.custom[this.props.adapterName + '.' + this.props.instance] : {};
             return {
                 id: object._id,
                 name: object.common.name,
@@ -119,13 +140,11 @@ class Objects extends Component {
             }
         });
         console.log(data);
-        return <div><TreeTable 
-            data={data} 
+        return <TreeTable
+            data={data}
             columns={columns}
-            disableTree={true}
-            disableDelete={true}
             onUpdate={this.props.updateTelemetryObject}
-        /></div>;
+        />;
     }
 }
 
@@ -139,8 +158,7 @@ Objects.propTypes = {
     onError: PropTypes.func,
     onChange: PropTypes.func,
     updateTelemetryObject: PropTypes.func,
-    socket: PropTypes.object.isRequired,
-    telemetryObjects: PropTypes.object.isRequired,
+    socket: PropTypes.object.isRequired
 };
 
 export default withStyles(styles)(Objects);

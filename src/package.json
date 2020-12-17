@@ -3,7 +3,8 @@
   "version": "0.0.1",
   "private": true,
   "dependencies": {
-    "@iobroker/adapter-react": "^1.4.11",
+    "@iobroker/adapter-react": "^1.5.3",
+    "react-colorful": "^4.4.4",
     "@material-ui/core": "^4.11.2",
     "@material-ui/icons": "^4.11.2",
     "@material-ui/lab": "^4.0.0-alpha.57",

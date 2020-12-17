@@ -9,6 +9,7 @@ const adapterName = require('./package.json').name.split('.').pop();
  * @type {ioBroker.Adapter}
  */
 let adapter;
+let telemetryObjects = {};
 
 const roles = [
     'sensor.motion',
@@ -102,7 +103,7 @@ async function saveObjects() {
     settings.native.telemetryObjects = [];
     adapter.unsubscribeForeignStates('*');
 
-    const telemetryObjects = settings.native.telemetryObjects;
+    telemetryObjects = {};
     for (const i in objects) {
         const object = objects[i];
         if (object.common && object.common.role) {
@@ -121,7 +122,6 @@ async function saveObjects() {
                 }
 
                 // TODO: Write information here only if really changed.
-                adapter.setForeignObject(object._id, object);
                 adapter.subscribeForeignStates(object._id);
             }
         }
@@ -234,6 +234,15 @@ function startAdapter(options) {
                 // adapter.log.info(JSON.stringify(state));
                 // adapter.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
                 addEvent(id, state);
+            }
+        },
+
+        message: (obj) => {
+            if (typeof obj === 'object' && obj.message && obj.callback) {
+                if (obj.command === 'browse') {
+                    // Send response in callback if required
+                    adapter.sendTo(obj.from, obj.command, {result: telemetryObjects}, obj.callback);
+                }
             }
         },
     }));

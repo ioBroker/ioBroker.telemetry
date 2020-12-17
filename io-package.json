@@ -59,7 +59,8 @@
         "mode": "daemon",
         "type": "communication",
         "compact": true,
-        "materialize": true
+        "materialize": true,
+        "messagebox": true
     },
     "native": {
         "url": "http://localhost:3003"
