@@ -178,12 +178,17 @@ class Objects extends Component {
             onUpdate={(newData, oldData) => {
                 console.log('Update: ' + JSON.stringify(newData));
                 this.props.socket.getObject(newData.id)
-                    .then(obj => {
+                    .then(async obj => {
                         const namespace = this.props.adapterName + '.' + this.props.instance;
                         obj.common.custom = obj.common.custom || {};
                         obj.common.custom[namespace] = obj.common.custom[namespace] || {};
+                        obj.common.custom[namespace].ignore = newData.ignore;
+                        obj.common.custom[namespace].debounce = newData.debounce;
+                        console.log(obj);
                         // todo
-                        return this.props.socket.setObject(obj.id, obj);
+                        const result = await this.props.socket.setObject(obj._id, obj);
+                        this.browse();
+                        return result;
                     });
             }}
         />;

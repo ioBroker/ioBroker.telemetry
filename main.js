@@ -2,6 +2,7 @@
 
 const utils       = require('@iobroker/adapter-core');
 const axios       = require('axios');
+const sha256       = require('js-sha256');
 const adapterName = require('./package.json').name.split('.').pop();
 
 /**
@@ -11,6 +12,7 @@ const adapterName = require('./package.json').name.split('.').pop();
 let adapter;
 let telemetryObjects = {};
 let events = [];
+let hashes = {};
 let lastSend = Date.now();
 let connected = false;
 
@@ -29,25 +31,18 @@ const roles = [
     'value.health.*'
 ];
 
+let uuid;
+
+let eventsTimeout;
+
 function isRoleRequired(role) {
+    if (!role) {
+        return false;
+    }
     if (roles.includes(role)) {
         return true;
     } else {
         return !!roles.filter(r => r.includes('*')).find(r => role.startsWith(r.substring(0, r.length - 1)));
-    }
-}
-
-async function updateObjects(id, object) {
-    if (!object || !object.common) {
-        return;
-    }
-
-    if (isRoleRequired(object.common.role) || telemetryObjects.includes(object._id)) {
-        if (!telemetryObjects.includes(object._id)) {
-            adapter.setState('data.update', true, true);
-
-            await fetchObjects();
-        }
     }
 }
 
@@ -58,10 +53,80 @@ function updateConnection(_connected) {
     }
 }
 
-async function addEvent(_id, state) {
-    const telemetryObjects = telemetryObjects;
+function addObject(id, object) {
+    adapter.subscribeForeignStates(id);
+    object.common.custom = object.common.custom || {};
+    object.common.custom[adapter.namespace] = object.common.custom[adapter.namespace] || {};
+    let hash = id.split('.');
+    hash = hash.slice(2);
+    hash = hash.join();
+    hash = sha256(hash);
+    object.common.custom[adapter.namespace].hash = hash;
+    hashes[hash] = id;
+    telemetryObjects[object._id] = object;
+    adapter.setState('data.update', true, true);
+}
 
-    if (!telemetryObjects.includes(_id)) {
+function removeObject(id) {
+    delete hashes[telemetryObjects[id].common.custom[adapter.namespace].hash];
+    delete telemetryObjects[id];
+    adapter.unsubscribeForeignStates(id);
+    adapter.setState('data.update', true, true);
+}
+
+async function updateObject(id, object) {
+    if (!object) {
+        if (Object.keys(telemetryObjects).includes(object._id)) {
+            removeObject(id);
+        }
+        return;
+    }
+    if (isRoleRequired(object.common.role) || Object.keys(telemetryObjects).includes(object._id)) {
+        if (isRoleRequired(object.common.role) && !Object.keys(telemetryObjects).includes(object._id)) {
+            addObject(id, object);
+        }
+        if (!isRoleRequired(object.common.role)) {
+            removeObject(id);
+        }
+        if (Object.keys(telemetryObjects).includes(object._id)) {
+            telemetryObjects[object._id].common.custom[adapter.namespace].debounce = object.common.custom[adapter.namespace].debounce;
+            telemetryObjects[object._id].common.custom[adapter.namespace].ignore = object.common.custom[adapter.namespace].ignore;
+            if (object.common.custom[adapter.namespace].ignore) {
+                adapter.unsubscribeForeignStates(object._id);
+            } else {
+                adapter.subscribeForeignStates(object._id);
+            }
+            adapter.setState('data.update', true, true);
+        }
+    }
+}
+
+async function fetchObjects() {
+    // await adapter.unsubscribeForeignObjectsAsync('*');
+    const objects = await adapter.getForeignObjectsAsync('*');
+    //const settings = await adapter.getObjectAsync('settings');
+
+    adapter.unsubscribeForeignStates('*');
+
+    telemetryObjects = {};
+    for (const i in objects) {
+        const object = objects[i];
+        if (object.common && object.common.role) {
+            if (isRoleRequired(object.common.role)) {
+                addObject(object._id, object);
+            }
+        }
+    }
+
+    adapter.log.info(JSON.stringify(telemetryObjects));
+
+    // TODO: why you save here the redundant information? We have stored all required info in the objects itself
+    // await adapter.setObjectAsync('settings', settings);
+    await adapter.subscribeForeignObjectsAsync('*');
+}
+
+async function addEvent(_id, state) {
+    if (!Object.keys(telemetryObjects).includes(_id)) {
         return;
     }
 
@@ -83,73 +148,45 @@ async function addEvent(_id, state) {
     }
     object.common.custom[adapter.namespace].eventsInHour.push(object.common.custom[adapter.namespace].lastEvent);
     object.common.custom[adapter.namespace].eventsInHour = object.common.custom[adapter.namespace].eventsInHour.filter(time => Date.now() - time < 60 * 60 * 1000);
-    adapter.log.info(`Change object ${_id}`);
-    //adapter.setForeignObject(_id, object);
+
     adapter.setState('data.events', JSON.stringify(events), true);
 
-    state.uuid = (await adapter.getForeignObjectAsync('system.meta.uuid')).native.uuid;
-
-    state._id = _id;
+    state.uuid = uuid;
+    state.hash = object.common.custom[adapter.namespace].hash;
+    delete state._id;
 
     events.push(state);
 
+    adapter.setState('data.update', true, true);
+
     // TODO: here is the problem - if event will not come in the next 5 minutes, the queue will not be saved, even if it has 99 events
-    if (events.length >= 100 || (lastSend && lastSend - Date.now() > 5 * 60 * 1000)) {
+    if (events.length >= 100 || (lastSend && Date.now() - lastSend > 5 * 60 * 1000)) {
         await sendEvents();
+        clearTimeout(eventsTimeout);
+        eventsTimeout = setTimeout(sendEvents, 5 * 60 * 1000);
     }
-}
-
-async function fetchObjects() {
-    // await adapter.unsubscribeForeignObjectsAsync('*');
-    const objects = await adapter.getForeignObjectsAsync('*');
-    //const settings = await adapter.getObjectAsync('settings');
-
-    adapter.unsubscribeForeignStates('*');
-
-    telemetryObjects = {};
-    for (const i in objects) {
-        const object = objects[i];
-        if (object.common && object.common.role) {
-            if (isRoleRequired(object.common.role)) {
-                adapter.log.info(`Telemetry object ${object._id}`);
-                telemetryObjects[object._id] = object;
-
-                adapter.subscribeForeignStates(object._id);
-            }
-        }
-    }
-
-    adapter.log.info(JSON.stringify(telemetryObjects));
-
-    // TODO: why you save here the redundant information? We have stored all required info in the objects itself
-    // await adapter.setObjectAsync('settings', settings);
-    await adapter.subscribeForeignObjectsAsync('*');
 }
 
 async function sendEvents() {
     // TODO: it is not good to read the settings object (that anyway does not required) from DB. Why not to store it in RAM?
-    const settings = await adapter.getObjectAsync('settings');
     try {
         const result = await axios.post(adapter.config.url, events);
         updateConnection(true);
         for (const i in events) {
             const event = events[i];
-            // TODO: do not use Objects for dynamic data. States are for that.
-            const object = await adapter.getForeignObjectAsync(event._id);
-            object.common.custom[adapter.namespace].lastSend = Date.now(); // TODO: why you need it?
-
-            adapter.setForeignObject(object._id, object);
+            
+            let object = telemetryObjects[event._id];
+            object.common.custom[adapter.namespace].lastSend = Date.now();
         }
         events = [];
         lastSend = Date.now();
-        settings.native.events = events;
 
         ///adapter.setObject('settings', settings);
 
         if (result) {
             for (const i in result) {
                 const answer = result[i];
-                const object = telemetryObjects[answer._id]; // TODO Store this information in RAM and not read every time from DB
+                const object = telemetryObjects[hashes[answer.hash]]; // TODO Store this information in RAM and not read every time from DB
                 let changed;
 
                 if (answer.ignore !== undefined && object.common.custom[adapter.namespace].ignore !== answer.ignore) {
@@ -196,11 +233,7 @@ function startAdapter(options) {
         // is called when adapter shuts down - callback has to be called under any circumstances!
         unload: callback => {
             try {
-                // Here you must clear all timeouts or intervals that may still be active
-                // clearTimeout(timeout1);
-                // clearTimeout(timeout2);
-                // ...
-                // clearInterval(interval1);
+                clearTimeout(eventsTimeout);
 
                 callback();
             } catch (e) {
@@ -211,7 +244,7 @@ function startAdapter(options) {
         // If you need to react to object changes, uncomment the following method.
         // You also need to subscribe to the objects with `adapter.subscribeObjects`, similar to `adapter.subscribeStates`.
         objectChange: (id, obj) =>
-            updateObjects(id, obj),
+            updateObject(id, obj),
 
         // is called if a subscribed state changes
         stateChange: (id, state) => {
@@ -235,6 +268,8 @@ function startAdapter(options) {
 }
 
 async function main() {
+
+    uuid = (await adapter.getForeignObjectAsync('system.meta.uuid')).native.uuid
 
     // Reset the connection indicator during startup
     await adapter.setStateAsync('info.connection', false, true);
