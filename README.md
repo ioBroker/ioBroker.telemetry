@@ -20,7 +20,7 @@ This adapter is used to anonymously collect the data on the central server for s
 - Update RAM objects on objectChanged (updated / deleted)
 - Show lastEvent and events in hours (and update this info every minute in GUI)
 - add setTimeout for send events (don't forget to clean the timeout on unload)
-
+- flash with green on update statistics only for according objects
 
 ## Changelog
 
