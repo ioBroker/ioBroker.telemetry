@@ -30,3 +30,11 @@ body {
 .App {
   height: 100%;
 }
+@keyframes glow {
+  from {
+    background-color: initial;
+  }
+  to {
+    background-color: green;
+  }
+}

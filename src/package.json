@@ -11,7 +11,6 @@
     "@sentry/integrations": "^5.29.0",
     "clsx": "^1.1.1",
     "eslint": "^6.6.0",
-    "jquery": "^3.5.1",
     "moment": "^2.29.1",
     "react": "^16.14.0",
     "react-colorful": "^4.4.4",

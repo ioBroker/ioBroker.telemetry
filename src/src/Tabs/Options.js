@@ -1,4 +1,4 @@
-import React, {Component} from 'react';
+import React from 'react';
 import {withStyles} from '@material-ui/core/styles';
 import PropTypes from 'prop-types';
 import clsx from 'clsx';
@@ -42,6 +42,12 @@ const Options = (props) => {
                 onChange={e => props.onChange('url', e.target.value)}
                 label={I18n.t('URL Server')}
                 helperText={I18n.t('Server')}
+            />
+            <TextField
+                value={props.native.sendIntervalSec}
+                onChange={e => props.onChange('sendIntervalSec', e.target.value)}
+                label={I18n.t('Send interval')}
+                helperText={I18n.t('seconds')}
             />
         </div>
         <h2>{I18n.t('De-bounces')}</h2>

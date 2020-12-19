@@ -2,7 +2,7 @@
 
 const utils       = require('@iobroker/adapter-core');
 const axios       = require('axios');
-const sha256       = require('js-sha256');
+const crypto      = require('crypto');
 const adapterName = require('./package.json').name.split('.').pop();
 
 /**
@@ -10,11 +10,14 @@ const adapterName = require('./package.json').name.split('.').pop();
  * @type {ioBroker.Adapter}
  */
 let adapter;
-let telemetryObjects = {};
+const telemetryObjects = {};
 let events = [];
-let hashes = {};
+const hashes = {};
+const subscribes = [];
 let lastSend = Date.now();
 let connected = false;
+let sendTimeout = null;
+let lastSendUpdate = null;
 
 const roles = [
     'sensor.motion',
@@ -31,7 +34,7 @@ const roles = [
     'value.health.*'
 ];
 
-let uuid;
+let url;
 
 let eventsTimeout;
 
@@ -53,165 +56,186 @@ function updateConnection(_connected) {
     }
 }
 
-function addObject(id, object) {
-    adapter.subscribeForeignStates(id);
-    object.common.custom = object.common.custom || {};
-    object.common.custom[adapter.namespace] = object.common.custom[adapter.namespace] || {};
-    let hash = id.split('.');
-    hash = hash.slice(2);
-    hash = hash.join();
-    hash = sha256(hash);
-    object.common.custom[adapter.namespace].hash = hash;
-    hashes[hash] = id;
-    telemetryObjects[object._id] = object;
-    adapter.setState('data.update', true, true);
-}
+function updateObject(id, object, sendUpdate) {
+    const custom = (object && object.common && object.common.custom && object.common.custom[adapter.namespace]) || {};
 
-function removeObject(id) {
-    delete hashes[telemetryObjects[id].common.custom[adapter.namespace].hash];
-    delete telemetryObjects[id];
-    adapter.unsubscribeForeignStates(id);
-    adapter.setState('data.update', true, true);
-}
+    if (object && object.common && isRoleRequired(object.common.role) && !custom.ignore) {
+        let hash = id.split('.');
+        let start = hash.shift();
+        start += '.' + hash.shift();
+        hash = hash.join('.');
+        hash = crypto.createHash('sha256').update(hash).digest('hex');
 
-async function updateObject(id, object) {
-    if (!object) {
-        if (Object.keys(telemetryObjects).includes(object._id)) {
-            removeObject(id);
+        hashes[start + '.' + hash] = id;
+
+        telemetryObjects[id] = {
+            debounce: custom.debounce,
+            ignore: false,
+            lastSend: telemetryObjects[id] ? telemetryObjects[id].lastSend : 0,
+            hash,
+            eventsInHour: [],
+            name: object.common.name,
+            role: object.common.role,
+        };
+
+        if (!subscribes.includes(id)) {
+            adapter.subscribeForeignStates(id);
+            subscribes.push(id);
         }
-        return;
+    } else {
+        if (telemetryObjects[id] && telemetryObjects[id].hash && hashes[telemetryObjects[id].hash]) {
+            delete hashes[telemetryObjects[id].hash];
+        }
+
+        if (custom.ignore) {
+            telemetryObjects[id] = {
+                debounce: custom.debounce,
+                ignore: true,
+                name: object.common.name,
+                role: object.common.role,
+            };
+        } else if (telemetryObjects[id]) {
+            delete telemetryObjects[id];
+        }
+        const pos = subscribes.indexOf(id);
+
+        if (pos !== -1) {
+            adapter.unsubscribeForeignStates(id);
+            subscribes.splice(pos, 1);
+        }
     }
-    if (isRoleRequired(object.common.role) || Object.keys(telemetryObjects).includes(object._id)) {
-        if (isRoleRequired(object.common.role) && !Object.keys(telemetryObjects).includes(object._id)) {
-            addObject(id, object);
-        }
-        if (!isRoleRequired(object.common.role)) {
-            removeObject(id);
-        }
-        if (Object.keys(telemetryObjects).includes(object._id)) {
-            telemetryObjects[object._id].common.custom[adapter.namespace].debounce = object.common.custom[adapter.namespace].debounce;
-            telemetryObjects[object._id].common.custom[adapter.namespace].ignore = object.common.custom[adapter.namespace].ignore;
-            if (object.common.custom[adapter.namespace].ignore) {
-                adapter.unsubscribeForeignStates(object._id);
-            } else {
-                adapter.subscribeForeignStates(object._id);
-            }
-            adapter.setState('data.update', true, true);
-        }
-    }
+
+    sendUpdate && adapter.setState('data.update', true, true);
 }
 
 async function fetchObjects() {
-    // await adapter.unsubscribeForeignObjectsAsync('*');
     const objects = await adapter.getForeignObjectsAsync('*');
-    //const settings = await adapter.getObjectAsync('settings');
 
-    adapter.unsubscribeForeignStates('*');
-
-    telemetryObjects = {};
     for (const i in objects) {
         const object = objects[i];
         if (object.common && object.common.role) {
             if (isRoleRequired(object.common.role)) {
-                addObject(object._id, object);
+                updateObject(object._id, object);
             }
         }
     }
 
+    adapter.setState('data.update', true, true);
+
     adapter.log.info(JSON.stringify(telemetryObjects));
 
-    // TODO: why you save here the redundant information? We have stored all required info in the objects itself
-    // await adapter.setObjectAsync('settings', settings);
     await adapter.subscribeForeignObjectsAsync('*');
 }
 
-async function addEvent(_id, state) {
-    if (!Object.keys(telemetryObjects).includes(_id)) {
+function sendUpdate() {
+    if (Date.now() - lastSendUpdate > 15000) {
+        sendTimeout && clearTimeout(sendTimeout);
+        sendTimeout = null;
+        lastSendUpdate = Date.now();
+        adapter.setState('data.update', true, true);
+        adapter.setState('data.events', JSON.stringify(events), true);
+    } else {
+        sendTimeout && clearTimeout(sendTimeout);
+        sendTimeout = setTimeout(() => {
+            sendTimeout = null;
+            lastSendUpdate = Date.now();
+            adapter.setState('data.update', true, true);
+            adapter.setState('data.events', JSON.stringify(events), true);
+        }, 1000);
+    }
+}
+
+async function addEvent(id, state) {
+    const object = telemetryObjects[id];
+    if (!object || object.ignore) {
         return;
     }
 
-    const object = telemetryObjects[_id];
+    const debounce = object.debounce || adapter.config[object.role + '_debounce'];
 
-    const debounce = object.common.custom[adapter.namespace].debounce ?
-        object.common.custom[adapter.namespace].debounce :
-        adapter.config[object.common.role + '_debounce'];
-
-    if (parseInt(object.common.custom[adapter.namespace].ignore)
-        || object.common.custom[adapter.namespace].lastEvent && (Date.now() - object.common.custom[adapter.namespace].lastEvent < debounce)
-    ) {
+    if (object.lastEvent && Date.now() - object.lastEvent < debounce) {
         return;
     }
 
-    object.common.custom[adapter.namespace].lastEvent = Date.now();
-    if (!object.common.custom[adapter.namespace].eventsInHour) {
-        object.common.custom[adapter.namespace].eventsInHour = [];
-    }
-    object.common.custom[adapter.namespace].eventsInHour.push(object.common.custom[adapter.namespace].lastEvent);
-    object.common.custom[adapter.namespace].eventsInHour = object.common.custom[adapter.namespace].eventsInHour.filter(time => Date.now() - time < 60 * 60 * 1000);
+    object.lastEvent = Date.now();
+    object.eventsInHour.push(object.lastEvent);
+    object.eventsInHour = object.eventsInHour.filter(time => Date.now() - time < 60 * 60 * 1000);
 
-    adapter.setState('data.events', JSON.stringify(events), true);
-
-    state.uuid = uuid;
-    state.hash = object.common.custom[adapter.namespace].hash;
-    delete state._id;
+    delete state.c;
+    delete state.q;
+    delete state.user;
+    delete state.lc;
+    state.id = object.hash;
+    state.role = object.role;
 
     events.push(state);
 
-    adapter.setState('data.update', true, true);
+    sendUpdate();
 
-    if (events.length >= 100 || (lastSend && Date.now() - lastSend > 5 * 60 * 1000)) {
+    if (events.length >= 100 || (lastSend && Date.now() - lastSend > adapter.config.sendIntervalSec * 1000)) {
+        eventsTimeout && clearTimeout(eventsTimeout);
+        eventsTimeout = null;
         await sendEvents();
-        clearTimeout(eventsTimeout);
-        eventsTimeout = setTimeout(sendEvents, 5 * 60 * 1000);
+    } else {
+        eventsTimeout = eventsTimeout || setTimeout(() => {
+            eventsTimeout = null;
+            sendEvents();
+        }, adapter.config.sendIntervalSec * 1000 - (Date.now() - lastSend));
     }
 }
 
 async function sendEvents() {
     try {
-        const result = await axios.post(adapter.config.url, events);
+        const result = await axios.post(url, events);
+
         updateConnection(true);
+        const now = Date.now();
         for (const i in events) {
             const event = events[i];
-            
-            let object = telemetryObjects[event._id];
-            object.common.custom[adapter.namespace].lastSend = Date.now();
+            if (hashes[event.id] && telemetryObjects[hashes[event.id]]) {
+                telemetryObjects[hashes[event.id]].lastSend = now;
+            }
         }
+
         events = [];
         lastSend = Date.now();
-
-        ///adapter.setObject('settings', settings);
 
         if (result) {
             for (const i in result) {
                 const answer = result[i];
                 let changed;
-                let object;
+                const object = telemetryObjects[hashes[answer.id]];
+                let realObj;
+                if (object) {
+                    if (answer.ignore !== undefined && object.ignore !== answer.ignore) {
+                        changed = true;
+                        realObj = await adapter.getForeignObjectAsync(object.id);
+                        realObj.common.custom = object.common.custom || {};
+                        realObj.common.custom[adapter.namespace] = realObj.common.custom[adapter.namespace] || {};
+                        realObj.common.custom[adapter.namespace].ignore = !!answer.ignore;
+                        realObj.common.custom[adapter.namespace].enabled = true;
+                    }
 
-                if (answer.ignore !== undefined && object.common.custom[adapter.namespace].ignore !== answer.ignore) {
-                    changed = true;
-                    object = object || await adapter.getForeignObjectAsync(hashes[answer.hash]);
-                    object.common.custom = object.common.custom || {};
-                    object.common.custom[adapter.namespace] = object.common.custom[adapter.namespace] || {};
-                    object.common.custom[adapter.namespace].ignore = !!answer.ignore;
-                    object.common.custom[adapter.namespace].enabled = true;
-
-                    if (answer.ignore) {
-                        await adapter.unsubscribeForeignStates(object._id);
+                    if (answer.debounce !== undefined && object.common.custom[adapter.namespace].debounce !== answer.debounce) {
+                        changed = true;
+                        realObj = await adapter.getForeignObjectAsync(object.id);
+                        realObj.common.custom = object.common.custom || {};
+                        realObj.common.custom[adapter.namespace] = realObj.common.custom[adapter.namespace] || {};
+                        realObj.common.custom[adapter.namespace].enabled = true;
+                        realObj.common.custom[adapter.namespace].debounce = answer.debounce;
+                    }
+                    if (changed) {
+                        // if default settings, just delete custom settings
+                        if (!realObj.common.custom[adapter.namespace].ignore && !realObj.common.custom[adapter.namespace].debounce) {
+                            realObj.common.custom[adapter.namespace] = null;
+                        }
+                        await adapter.setForeignObjectAsync(object.id, realObj);
                     }
                 }
-                if (answer.debounce !== undefined && object.common.custom[adapter.namespace].debounce !== answer.debounce) {
-                    changed = true;
-                    object = object || await adapter.getForeignObjectAsync(hashes[answer.hash]);
-                    object.common.custom = object.common.custom || {};
-                    object.common.custom[adapter.namespace] = object.common.custom[adapter.namespace] || {};
-                    object.common.custom[adapter.namespace].enabled = true;
-                    object.common.custom[adapter.namespace].debounce = answer.debounce;
-                }
-                changed && await adapter.setForeignObjectAsync(object._id, object);
             }
         }
-        adapter.setState('data.update', true, true);
-    } catch(e) {
+        sendUpdate();
+    } catch (e) {
         updateConnection(false);
         adapter.log.info(e);
     }
@@ -233,26 +257,33 @@ function startAdapter(options) {
         // is called when adapter shuts down - callback has to be called under any circumstances!
         unload: callback => {
             try {
-                clearTimeout(eventsTimeout);
+                eventsTimeout && clearTimeout(eventsTimeout);
+                eventsTimeout = null;
 
-                callback();
+                if (sendTimeout) {
+                    adapter.setState('data.events', JSON.stringify(events), true);
+                    clearTimeout(sendTimeout);
+                    sendTimeout = null;
+                }
+
+                callback && callback();
             } catch (e) {
-                callback();
+                callback && callback();
             }
         },
 
         // If you need to react to object changes, uncomment the following method.
         // You also need to subscribe to the objects with `adapter.subscribeObjects`, similar to `adapter.subscribeStates`.
-        objectChange: (id, obj) =>
-            updateObject(id, obj),
+        objectChange: async (id, obj) =>
+            await updateObject(id, obj, true),
 
         // is called if a subscribed state changes
-        stateChange: (id, state) => {
+        stateChange: async (id, state) => {
             if (id && state && state.val !== null && state.val !== undefined) {
                 // The state was changed
                 // adapter.log.info(JSON.stringify(state));
                 // adapter.log.info(`state ${id} changed: ${state.val} (ack = ${state.ack})`);
-                addEvent(id, state);
+                await addEvent(id, state);
             }
         },
 
@@ -268,30 +299,23 @@ function startAdapter(options) {
 }
 
 async function main() {
+    // parse all de-bounces
+    Object.keys(adapter.config)
+        .filter(attr => attr.endsWith('_debounce'))
+        .forEach(attr =>
+            adapter.config[attr] = parseInt(adapter.config[attr], 10) || 5000);
 
-    uuid = (await adapter.getForeignObjectAsync('system.meta.uuid')).native.uuid
+    adapter.config.sendIntervalSec = parseInt(adapter.config.sendIntervalSec, 10) || 300;
+
+    const uuid = (await adapter.getForeignObjectAsync('system.meta.uuid')).native.uuid;
+    url = adapter.config.url.endsWith('/') ? adapter.config.url + uuid : adapter.config.url + '/' + uuid;
 
     // Reset the connection indicator during startup
     await adapter.setStateAsync('info.connection', false, true);
 
-    // The adapters config (in the instance object everything under the attribute "native") is accessible via
-    // adapter.config:
-
     await fetchObjects();
 
     await sendEvents();
-
-    await adapter.setObjectNotExistsAsync('settings', {
-        type: 'state',
-        common: {
-            name: 'settings',
-            type: 'boolean',
-            role: 'meta',
-            read: true,
-            write: true,
-        },
-        native: {},
-    });
 }
 
 // @ts-ignore parent is a valid property on module

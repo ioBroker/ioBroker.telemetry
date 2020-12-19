@@ -1,6 +1,5 @@
 import React, {Component} from 'react';
 import moment from 'moment';
-import jquery from 'jquery';
 import {withStyles} from '@material-ui/core/styles';
 import PropTypes from 'prop-types';
 import Snackbar from '@material-ui/core/Snackbar';
@@ -44,10 +43,7 @@ const columns = [
     {
         title: I18n.t('Ignore'),
         field: 'ignore',
-        lookup: {
-            0: I18n.t('No ignore'),
-            1: I18n.t('Ignore'),
-        }
+        type: 'boolean'
     },
     {
         title: I18n.t('Last event'),
@@ -88,19 +84,31 @@ class Objects extends Component {
         return this.props.socket.sendTo(this.props.adapterName + '.' + this.props.instance, 'browse', null)
             .then(result => {
                 if (result.result) {
-                    const namespace = this.props.adapterName + '.' + this.props.instance;
+                    let update = [];
+                    // check updated rows
                     for (const id in result.result) {
                         const telemetryObject = result.result[id];
-                        try {
-                            if (this.state.telemetryObjects[id].common.custom[namespace].lastEvent != telemetryObject.common.custom[namespace].lastEvent) {
-                                this.glow('.table-cell-lastEvent-'+id.replaceAll('.', '\\.'));
-                                this.glow('.table-cell-eventsInHour-'+id.replaceAll('.', '\\.'));
-                            }
-                        } catch (e) {
-
+                        if ((this.state.telemetryObjects[id] ? this.state.telemetryObjects[id].lastEvent : 0)
+                            !==
+                            (telemetryObject ? telemetryObject.lastEvent : 0)) {
+                            update.push('.table-row-' + id.replace(/[.$]/g, '_'));
                         }
                     }
-                    this.setState({telemetryObjects: result.result});
+
+                    if (update.length === Object.keys(result.result).length) {
+                        update = [];
+                    }
+
+                    this.setState({telemetryObjects: result.result}, () => {
+                        this.glowTimeout && clearTimeout(this.glowTimeout)
+                        this.glowTimeout = null;
+                        if (update.length) {
+                            this.glowTimeout = setTimeout(_update => {
+                                this.glowTimeout = null;
+                                _update.forEach(selector => this.glow(selector));
+                            }, 100, update);
+                        }
+                    });
                 } else {
                     this.setState({toast: I18n.t('Cannot get list:') + (result.error || 'see ioBroker log')});
                 }
@@ -167,9 +175,13 @@ class Objects extends Component {
     }
 
     glow = selector => {
-        console.log(selector);
-        jquery(selector).css('animation', 'glow 0.5s 2 alternate');
-        setTimeout(() => jquery(selector).css('animation', ''), 1000);
+        const item = document.querySelector(selector);
+        item.style.animation = 'glow 0.2s 2 alternate';
+
+        setTimeout((_selector) => {
+            const item = document.querySelector(_selector);
+            item.style.animation = '';
+        }, 1000, selector);
     }
 
     render() {
@@ -178,51 +190,41 @@ class Objects extends Component {
         }
         const lang = I18n.getLanguage();
 
-        const data = Object.values(this.state.telemetryObjects).map(object => {
-            const custom = object.common.custom ? object.common.custom[this.props.adapterName + '.' + this.props.instance] || {} : {};
+        const data = Object.keys(this.state.telemetryObjects).map(id => {
+            const object = this.state.telemetryObjects[id];
             return {
-                id: object._id,
-                name: Utils.getObjectNameFromObj(object, lang),
-                type: object.common.role,
-                debounce: custom.debounce ? custom.debounce : this.props.native[object.common.role + '_debounce'] || 0,
-                ignore: custom.ignore ? custom.ignore : 0,
-                lastEvent: custom.lastEvent ? moment(custom.lastEvent).format('YYYY-MM-DD HH:mm:ss') : null,
-                eventsInHour: custom.eventsInHour ? custom.eventsInHour.length : null,
+                id,
+                name: Utils.getObjectNameFromObj({common: {name: object.name}}, lang),
+                type: object.role,
+                debounce: object.debounce || 0,
+                ignore: object.ignore,
+                lastEvent: object.lastEvent ? moment(object.lastEvent).format('YYYY-MM-DD HH:mm:ss') : null,
+                eventsInHour: object.eventsInHour ? object.eventsInHour.length : null,
             }
         });
-        return <><style>
-            {`@keyframes glow {
-                from {
-                    background-color: initial;
-                }
-                to {
-                    background-color: green;
-                }
-            }
-            `}
-            </style>
-            <TreeTable
+        return <TreeTable
             noAdd={true}
             data={data}
             columns={columns}
-            onUpdate={(newData, oldData) => {
-                console.log('Update: ' + JSON.stringify(newData));
+            onUpdate={newData => {
                 this.props.socket.getObject(newData.id)
                     .then(async obj => {
                         const namespace = this.props.adapterName + '.' + this.props.instance;
                         obj.common.custom = obj.common.custom || {};
                         obj.common.custom[namespace] = obj.common.custom[namespace] || {};
+                        obj.common.custom[namespace].enabled = true;
                         obj.common.custom[namespace].ignore = newData.ignore;
                         obj.common.custom[namespace].debounce = newData.debounce;
-                        console.log(obj);
-                        // todo
-                        this.glow('.table-row-'+obj._id.replaceAll('.', '\\.'));
-                        const result = await this.props.socket.setObject(obj._id, obj);
+                        if (!newData.ignore && !newData.debounce) {
+                            obj.common.custom[namespace] = null;
+                        }
+
+                        this.glow('.table-row-' + obj._id.replace(/[.$]/g, '_'));
+                        await this.props.socket.setObject(obj._id, obj);
                         this.browse();
-                        return result;
                     });
             }}
-        /></>;
+        />;
     }
 }
 

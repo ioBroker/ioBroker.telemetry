@@ -433,6 +433,23 @@ class TreeTable extends React.Component {
         </div>;
     }
 
+    renderCellNonEdit(item, col) {
+        let val = getAttr(item, col.field, col.lookup);
+        if (Array.isArray(val)) {
+            val = val[0];
+        }
+
+        if (col.type === 'boolean') {
+            return <Checkbox
+                checked={!!val}
+                disabled={true}
+                inputProps={{ 'aria-label': 'checkbox' }}
+            />
+        } else {
+            return val;
+        }
+    }
+
     renderCell(item, col, level, i) {
         if (this.state.editMode === i && col.editable !== 'never' && col.editable !== false) {
             return <TableCell
@@ -446,10 +463,10 @@ class TreeTable extends React.Component {
         } else {
             return <TableCell
                 key={col.field}
-                className={Utils.clsx('table-cell-' + col.field + '-' + item.id, this.props.classes.cell, level && this.props.classes.cellSecondary)}
+                className={Utils.clsx(this.props.classes.cell, level && this.props.classes.cellSecondary)}
                 style={col.cellStyle}
                 component="th" >
-                    {getAttr(item, col.field, col.lookup)}
+                    {this.renderCellNonEdit(item, col)}
                 </TableCell>;
         }
     }
@@ -482,7 +499,7 @@ class TreeTable extends React.Component {
                 <TableRow
                     key={item.id}
                     className={Utils.clsx(
-                        'table-row-' + item.id,
+                        'table-row-' + (item.id || '').replace(/[.$]/g, '_'),
                         this.props.classes.row,
                         level  && this.props.classes.rowSecondary,
                         !level && children.length && this.props.classes.rowMainWithChildren,
