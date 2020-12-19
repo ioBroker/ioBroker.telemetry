@@ -1,5 +1,6 @@
 import React, {Component} from 'react';
 import moment from 'moment';
+import jquery from 'jquery';
 import {withStyles} from '@material-ui/core/styles';
 import PropTypes from 'prop-types';
 import Snackbar from '@material-ui/core/Snackbar';
@@ -87,6 +88,18 @@ class Objects extends Component {
         return this.props.socket.sendTo(this.props.adapterName + '.' + this.props.instance, 'browse', null)
             .then(result => {
                 if (result.result) {
+                    const namespace = this.props.adapterName + '.' + this.props.instance;
+                    for (const id in result.result) {
+                        const telemetryObject = result.result[id];
+                        try {
+                            if (this.state.telemetryObjects[id].common.custom[namespace].lastEvent != telemetryObject.common.custom[namespace].lastEvent) {
+                                this.glow('.table-cell-lastEvent-'+id.replaceAll('.', '\\.'));
+                                this.glow('.table-cell-eventsInHour-'+id.replaceAll('.', '\\.'));
+                            }
+                        } catch (e) {
+
+                        }
+                    }
                     this.setState({telemetryObjects: result.result});
                 } else {
                     this.setState({toast: I18n.t('Cannot get list:') + (result.error || 'see ioBroker log')});
@@ -153,6 +166,12 @@ class Objects extends Component {
         }
     }
 
+    glow = selector => {
+        console.log(selector);
+        jquery(selector).css('animation', 'glow 0.5s 2 alternate');
+        setTimeout(() => jquery(selector).css('animation', ''), 1000);
+    }
+
     render() {
         if (!this.state.alive) {
             return <p>{I18n.t('Please start the instance first!')}</p>;
@@ -171,7 +190,18 @@ class Objects extends Component {
                 eventsInHour: custom.eventsInHour ? custom.eventsInHour.length : null,
             }
         });
-        return <TreeTable
+        return <><style>
+            {`@keyframes glow {
+                from {
+                    background-color: initial;
+                }
+                to {
+                    background-color: green;
+                }
+            }
+            `}
+            </style>
+            <TreeTable
             noAdd={true}
             data={data}
             columns={columns}
@@ -186,12 +216,13 @@ class Objects extends Component {
                         obj.common.custom[namespace].debounce = newData.debounce;
                         console.log(obj);
                         // todo
+                        this.glow('.table-row-'+obj._id.replaceAll('.', '\\.'));
                         const result = await this.props.socket.setObject(obj._id, obj);
                         this.browse();
                         return result;
                     });
             }}
-        />;
+        /></>;
     }
 }
 

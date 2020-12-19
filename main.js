@@ -159,7 +159,6 @@ async function addEvent(_id, state) {
 
     adapter.setState('data.update', true, true);
 
-    // TODO: here is the problem - if event will not come in the next 5 minutes, the queue will not be saved, even if it has 99 events
     if (events.length >= 100 || (lastSend && Date.now() - lastSend > 5 * 60 * 1000)) {
         await sendEvents();
         clearTimeout(eventsTimeout);
@@ -168,7 +167,6 @@ async function addEvent(_id, state) {
 }
 
 async function sendEvents() {
-    // TODO: it is not good to read the settings object (that anyway does not required) from DB. Why not to store it in RAM?
     try {
         const result = await axios.post(adapter.config.url, events);
         updateConnection(true);
@@ -186,11 +184,12 @@ async function sendEvents() {
         if (result) {
             for (const i in result) {
                 const answer = result[i];
-                const object = telemetryObjects[hashes[answer.hash]]; // TODO Store this information in RAM and not read every time from DB
                 let changed;
+                let object;
 
                 if (answer.ignore !== undefined && object.common.custom[adapter.namespace].ignore !== answer.ignore) {
                     changed = true;
+                    object = object || await adapter.getForeignObjectAsync(hashes[answer.hash]);
                     object.common.custom = object.common.custom || {};
                     object.common.custom[adapter.namespace] = object.common.custom[adapter.namespace] || {};
                     object.common.custom[adapter.namespace].ignore = !!answer.ignore;
@@ -202,6 +201,7 @@ async function sendEvents() {
                 }
                 if (answer.debounce !== undefined && object.common.custom[adapter.namespace].debounce !== answer.debounce) {
                     changed = true;
+                    object = object || await adapter.getForeignObjectAsync(hashes[answer.hash]);
                     object.common.custom = object.common.custom || {};
                     object.common.custom[adapter.namespace] = object.common.custom[adapter.namespace] || {};
                     object.common.custom[adapter.namespace].enabled = true;

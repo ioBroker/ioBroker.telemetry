@@ -446,9 +446,11 @@ class TreeTable extends React.Component {
         } else {
             return <TableCell
                 key={col.field}
-                className={Utils.clsx(this.props.classes.cell, level && this.props.classes.cellSecondary)}
+                className={Utils.clsx('table-cell-' + col.field + '-' + item.id, this.props.classes.cell, level && this.props.classes.cellSecondary)}
                 style={col.cellStyle}
-                component="th" >{getAttr(item, col.field, col.lookup)}</TableCell>;
+                component="th" >
+                    {getAttr(item, col.field, col.lookup)}
+                </TableCell>;
         }
     }
 
@@ -480,6 +482,7 @@ class TreeTable extends React.Component {
                 <TableRow
                     key={item.id}
                     className={Utils.clsx(
+                        'table-row-' + item.id,
                         this.props.classes.row,
                         level  && this.props.classes.rowSecondary,
                         !level && children.length && this.props.classes.rowMainWithChildren,

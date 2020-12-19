@@ -4,7 +4,6 @@
   "private": true,
   "dependencies": {
     "@iobroker/adapter-react": "^1.5.3",
-    "react-colorful": "^4.4.4",
     "@material-ui/core": "^4.11.2",
     "@material-ui/icons": "^4.11.2",
     "@material-ui/lab": "^4.0.0-alpha.57",
@@ -12,8 +11,10 @@
     "@sentry/integrations": "^5.29.0",
     "clsx": "^1.1.1",
     "eslint": "^6.6.0",
+    "jquery": "^3.5.1",
     "moment": "^2.29.1",
     "react": "^16.14.0",
+    "react-colorful": "^4.4.4",
     "react-dom": "^16.14.0",
     "react-icons": "^4.1.0",
     "react-scripts": "^3.4.4"
