@@ -1,11 +1,11 @@
 {
-  "Resources": "Recursos",
-  "Stations": "Estaciones",
-  "History instance": "Instancia de historia",
-  "Statistics instance": "Instancia de estadísticas",
-  "none": "ninguna",
-  "Start planning from": "Empiece a planificar desde",
-  "In Form YYYY-MM": "En formato AAAA-MM",
-  "Insert object ID": "Insertar ID de objeto",
-  "Place your ioBroker.consumption license here": "Coloque su licencia de ioBroker.consumption aquí"
+  "Options": "Opciones",
+  "Objects": "Objetos",
+  "URL Server": "URL del servidor",
+  "Server": "Servidor",
+  "Send interval": "Intervalo de envío",
+  "seconds": "segundos",
+  "De-bounces": "De-bounces",
+  "debounce": "rebote",
+  "ms": "ms"
 }

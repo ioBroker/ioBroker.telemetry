@@ -1,11 +1,11 @@
 {
-  "Resources": "Middelen",
-  "Stations": "Stations",
-  "History instance": "Geschiedenis exemplaar",
-  "Statistics instance": "Statistische instantie",
-  "none": "geen",
-  "Start planning from": "Begin met plannen vanaf",
-  "In Form YYYY-MM": "In formulier JJJJ-MM",
-  "Insert object ID": "Object-ID invoegen",
-  "Place your ioBroker.consumption license here": "Plaats hier uw ioBroker.consumption-licentie"
+  "Options": "Opties",
+  "Objects": "Voorwerpen",
+  "URL Server": "Server-URL",
+  "Server": "Server",
+  "Send interval": "Verzend interval",
+  "seconds": "seconden",
+  "De-bounces": "De-bounces",
+  "debounce": "de-bounce",
+  "ms": "ms"
 }

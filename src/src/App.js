@@ -8,6 +8,7 @@ import Loader from '@iobroker/adapter-react/Components/Loader'
 import I18n from '@iobroker/adapter-react/i18n';
 import TabOptions from './Tabs/Options';
 import TabObjects from './Tabs/Objects';
+import TabDebounces from './Tabs/Debounces';
 
 const styles = theme => ({
     root: {},
@@ -33,7 +34,6 @@ const roles = [
     'level.temperature',
     'value.humidity',
     'value.blood.sugar',
-    'level.co2',
     'level.co2',
     'value.health.*'
 ];
@@ -66,6 +66,9 @@ class App extends GenericApp {
         } else
         if (tab === 'objects') {
             return 1;
+        } else
+        if (tab === 'debounces') {
+            return 2;
         }
     }
 
@@ -106,8 +109,9 @@ class App extends GenericApp {
                 <AppBar position="static">
 
                     <Tabs value={this.getSelectedTab()} onChange={(e, index) => this.selectTab(e.target.parentNode.dataset.name, index)}>
-                        <Tab label={I18n.t('Options')} data-name="options" />
-                        <Tab label={I18n.t('Objects')}  data-name="objects" />
+                        <Tab label={I18n.t('Options')}    data-name="options" />
+                        <Tab label={I18n.t('Objects')}    data-name="objects" />
+                        <Tab label={I18n.t('De-bounces')} data-name="debounces" />
                         {/*this.state.selectedTab === 'objects' ? <IconButton onClick={() => this.onPrepareLoad(this.state.native)}>
                             <RefreshIcon htmlColor="white"/>
                         </IconButton> : null*/}
@@ -125,7 +129,6 @@ class App extends GenericApp {
                         instance={this.instance}
                         adapterName={this.adapterName}
                         onChange={(attr, value, cb) => this.updateNativeValue(attr, value, cb)}
-                        roles={roles}
                     />)}
                     {this.state.selectedTab === 'objects' && <TabObjects
                         key="objects"
@@ -137,6 +140,18 @@ class App extends GenericApp {
                         onError={text => this.setState({errorText: text})}
                         instance={this.instance}
                         adapterName={this.adapterName}
+                    />}
+                    {this.state.selectedTab === 'debounces' && <TabDebounces
+                        key="options"
+                        common={this.common}
+                        socket={this.socket}
+                        native={this.state.native}
+                        theme={this.state.themeType}
+                        onError={text => this.setState({errorText: text})}
+                        instance={this.instance}
+                        adapterName={this.adapterName}
+                        onChange={(attr, value, cb) => this.updateNativeValue(attr, value, cb)}
+                        roles={roles}
                     />}
                 </div>
                 {this.renderError()}

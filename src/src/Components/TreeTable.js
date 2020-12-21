@@ -162,6 +162,9 @@ const styles = theme => ({
     subText: {
         fontSize: 10,
         fontStyle: 'italic',
+    },
+    glow: {
+        animation: 'glow 0.2s 2 alternate'
     }
 });
 
@@ -220,9 +223,39 @@ class TreeTable extends React.Component {
             deleteMode: false,
             editData: null,
             order: 'asc',
+            update: null,
             orderBy: this.props.columns[0].field,
             useTable: false,
-            showSelectColor: false
+            showSelectColor: false,
+            glowOnChange: props.glowOnChange
+        }
+    }
+
+    static getDerivedStateFromProps(props, state) {
+        if (props.glowOnChange) {
+            const update = [];
+            let count = 0;
+            if (props.data && state.data) {
+                props.data.forEach(line => {
+                    count++;
+                    const oldLine = state.data.find(it => it.id === line.id);
+                    if (oldLine) {
+                        if (JSON.stringify(oldLine) !== JSON.stringify(line)) {
+                            update.push(line.id);
+                        }
+                    } else {
+                        update.push(line.id);
+                    }
+                });
+            }
+
+            if (update.length && update.length !== count) {
+                return {data: props.data, update};
+            } else {
+                return {data: props.data};
+            }
+        } else {
+            return {data: props.data};
         }
     }
 
@@ -500,6 +533,7 @@ class TreeTable extends React.Component {
                     key={item.id}
                     className={Utils.clsx(
                         'table-row-' + (item.id || '').replace(/[.$]/g, '_'),
+                        this.state.update && this.state.update.includes(item.id) && this.props.classes.glow,
                         this.props.classes.row,
                         level  && this.props.classes.rowSecondary,
                         !level && children.length && this.props.classes.rowMainWithChildren,
@@ -647,6 +681,14 @@ class TreeTable extends React.Component {
         const lookup = this.props.columns.find(col => col.field === this.state.orderBy).lookup;
         const table = stableSort(this.props.data, getComparator(this.state.order, this.state.orderBy, lookup));
 
+        if (this.state.update && this.state.update.length) {
+            this.updateTimeout && clearTimeout(this.updateTimeout);
+            this.updateTimeout = setTimeout(() => {
+                this.updateTimeout = null;
+                this.setState({update: null});
+            }, 500)
+        }
+
         return <div className={Utils.clsx(this.props.classes.tableContainer, this.props.className)}>
             <Table className={this.props.classes.table} aria-label="simple table" size="small" stickyHeader={true}>
                 {this.renderHead()}
@@ -764,6 +806,7 @@ TreeTable.propTypes = {
     onDelete: PropTypes.func,
     noAdd: PropTypes.bool, // hide add button
     themeType: PropTypes.string,
+    glowOnChange: PropTypes.bool,
     socket: PropTypes.object // only if oid type is used
 };
 

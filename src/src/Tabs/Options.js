@@ -43,6 +43,7 @@ const Options = (props) => {
                 label={I18n.t('URL Server')}
                 helperText={I18n.t('Server')}
             />
+            <br/>
             <TextField
                 value={props.native.sendIntervalSec}
                 onChange={e => props.onChange('sendIntervalSec', e.target.value)}
@@ -50,17 +51,6 @@ const Options = (props) => {
                 helperText={I18n.t('seconds')}
             />
         </div>
-        <h2>{I18n.t('De-bounces')}</h2>
-        {props.roles.map(role =>
-            <div key={role} className={clsx(props.classes.column, props.classes.columnSettings)}>
-                <TextField
-                    value={props.native[role + '_debounce']}
-                    type="number"
-                    onChange={e => props.onChange(role + '_debounce', e.target.value)}
-                    label={I18n.t(role) + ' ' + I18n.t('debounce')}
-                />
-            </div>
-        )}
     </form>;
 }
 

@@ -30,7 +30,6 @@ const roles = [
     'value.humidity',
     'value.blood.sugar',
     'level.co2',
-    'level.co2',
     'value.health.*'
 ];
 

@@ -10,7 +10,7 @@ import {MdClose as IconClose} from 'react-icons/md';
 import I18n from '@iobroker/adapter-react/i18n';
 import Message from '@iobroker/adapter-react/Dialogs/Message';
 
-import TreeTable from '../Components/TreeTable';
+import TreeTable from '@iobroker/adapter-react/Components/TreeTable';
 import Utils from '@iobroker/adapter-react/Components/Utils';
 
 const styles = theme => ({
@@ -84,31 +84,7 @@ class Objects extends Component {
         return this.props.socket.sendTo(this.props.adapterName + '.' + this.props.instance, 'browse', null)
             .then(result => {
                 if (result.result) {
-                    let update = [];
-                    // check updated rows
-                    for (const id in result.result) {
-                        const telemetryObject = result.result[id];
-                        if ((this.state.telemetryObjects[id] ? this.state.telemetryObjects[id].lastEvent : 0)
-                            !==
-                            (telemetryObject ? telemetryObject.lastEvent : 0)) {
-                            update.push('.table-row-' + id.replace(/[.$]/g, '_'));
-                        }
-                    }
-
-                    if (update.length === Object.keys(result.result).length) {
-                        update = [];
-                    }
-
-                    this.setState({telemetryObjects: result.result}, () => {
-                        this.glowTimeout && clearTimeout(this.glowTimeout)
-                        this.glowTimeout = null;
-                        if (update.length) {
-                            this.glowTimeout = setTimeout(_update => {
-                                this.glowTimeout = null;
-                                _update.forEach(selector => this.glow(selector));
-                            }, 100, update);
-                        }
-                    });
+                    this.setState({telemetryObjects: result.result});
                 } else {
                     this.setState({toast: I18n.t('Cannot get list:') + (result.error || 'see ioBroker log')});
                 }
@@ -174,16 +150,6 @@ class Objects extends Component {
         }
     }
 
-    glow = selector => {
-        const item = document.querySelector(selector);
-        item.style.animation = 'glow 0.2s 2 alternate';
-
-        setTimeout((_selector) => {
-            const item = document.querySelector(_selector);
-            item.style.animation = '';
-        }, 1000, selector);
-    }
-
     render() {
         if (!this.state.alive) {
             return <p>{I18n.t('Please start the instance first!')}</p>;
@@ -206,6 +172,7 @@ class Objects extends Component {
             noAdd={true}
             data={data}
             columns={columns}
+            glowOnChange={true}
             onUpdate={newData => {
                 this.props.socket.getObject(newData.id)
                     .then(async obj => {
@@ -218,10 +185,7 @@ class Objects extends Component {
                         if (!newData.ignore && !newData.debounce) {
                             obj.common.custom[namespace] = null;
                         }
-
-                        this.glow('.table-row-' + obj._id.replace(/[.$]/g, '_'));
                         await this.props.socket.setObject(obj._id, obj);
-                        this.browse();
                     });
             }}
         />;
