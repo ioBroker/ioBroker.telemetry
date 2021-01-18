@@ -23,14 +23,16 @@ This adapter is used to anonymously collect the data on the central server for s
 - flash with green on update statistics only for according objects (by the update and on save)
 
 ## Changelog
+### 0.1.0 (2021-01-18)
+* (ioBroker) fixed build scripts
 
-### 0.0.1
+### 0.0.1 (2021-01-18)
 * (ioBroker) initial release
 
 ## License
 MIT License
 
-Copyright (c) 2020 bluefox <dogafox@gmail.com>
+Copyright (c) 2020-2021 bluefox <dogafox@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

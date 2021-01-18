@@ -15,3 +15,4 @@ admin/i18n/*/flat.txt
 /.vscode
 /src/package-lock.json
 /package-lock.json
+/src/.eslintcache
