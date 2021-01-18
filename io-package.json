@@ -63,7 +63,7 @@
         "messagebox": true
     },
     "native": {
-        "url": "http://localhost:3003",
+        "url": "https://telemetry.iobroker.me:5555",
         "sendIntervalSec": 300
     },
     "objects": [],

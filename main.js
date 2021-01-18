@@ -166,6 +166,22 @@ async function addEvent(id, state) {
     delete state.lc;
     state.id = object.hash;
     state.role = object.role;
+    state.tz = new Date().getTimezoneOffset();
+    if (state.from) {
+        state.from = state.from.replace('system.adapter.', '');
+    }
+
+    /*
+    const data =
+    {
+        val: 1,
+        ack: true,
+        id: 'hash',
+        ts: Date.now(),
+        from: 'admin.0',
+        role: 'sensor.motion',
+        tz: -60
+    }*/
 
     events.push(state);
 
@@ -188,13 +204,13 @@ async function sendEvents() {
         const result = await axios.post(url, events);
 
         updateConnection(true);
+
         const now = Date.now();
-        for (const i in events) {
-            const event = events[i];
+        events.forEach(event => {
             if (hashes[event.id] && telemetryObjects[hashes[event.id]]) {
                 telemetryObjects[hashes[event.id]].lastSend = now;
             }
-        }
+        });
 
         events = [];
         lastSend = Date.now();
@@ -223,6 +239,7 @@ async function sendEvents() {
                         realObj.common.custom[adapter.namespace].enabled = true;
                         realObj.common.custom[adapter.namespace].debounce = answer.debounce;
                     }
+
                     if (changed) {
                         // if default settings, just delete custom settings
                         if (!realObj.common.custom[adapter.namespace].ignore && !realObj.common.custom[adapter.namespace].debounce) {
